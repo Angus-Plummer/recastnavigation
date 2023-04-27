@@ -18,6 +18,7 @@
 
 #include "Recast.h"
 #include "RecastAssert.h"
+#include "RecastOptimisationToggle.h" //@HG
 
 #include <stdlib.h>
 

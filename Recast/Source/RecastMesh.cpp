@@ -22,6 +22,8 @@
 #include "Recast.h"
 #include "RecastAlloc.h"
 #include "RecastAssert.h"
+#include "RecastSharedUtilFuncs.h" //@HG
+#include "RecastOptimisationToggle.h" //@HG
 
 struct rcEdge
 {
@@ -157,84 +159,6 @@ static unsigned short addVertex(unsigned short x, unsigned short y, unsigned sho
 	firstVert[bucket] = i;
 	
 	return (unsigned short)i;
-}
-
-// Last time I checked the if version got compiled using cmov, which was a lot faster than module (with idiv).
-inline int prev(int i, int n) { return i-1 >= 0 ? i-1 : n-1; }
-inline int next(int i, int n) { return i+1 < n ? i+1 : 0; }
-
-inline int area2(const int* a, const int* b, const int* c)
-{
-	return (b[0] - a[0]) * (c[2] - a[2]) - (c[0] - a[0]) * (b[2] - a[2]);
-}
-
-//	Exclusive or: true iff exactly one argument is true.
-//	The arguments are negated to ensure that they are 0/1
-//	values.  Then the bitwise Xor operator may apply.
-//	(This idea is due to Michael Baldwin.)
-inline bool xorb(bool x, bool y)
-{
-	return !x ^ !y;
-}
-
-// Returns true iff c is strictly to the left of the directed
-// line through a to b.
-inline bool left(const int* a, const int* b, const int* c)
-{
-	return area2(a, b, c) < 0;
-}
-
-inline bool leftOn(const int* a, const int* b, const int* c)
-{
-	return area2(a, b, c) <= 0;
-}
-
-inline bool collinear(const int* a, const int* b, const int* c)
-{
-	return area2(a, b, c) == 0;
-}
-
-//	Returns true iff ab properly intersects cd: they share
-//	a point interior to both segments.  The properness of the
-//	intersection is ensured by using strict leftness.
-static bool intersectProp(const int* a, const int* b, const int* c, const int* d)
-{
-	// Eliminate improper cases.
-	if (collinear(a,b,c) || collinear(a,b,d) ||
-		collinear(c,d,a) || collinear(c,d,b))
-		return false;
-	
-	return xorb(left(a,b,c), left(a,b,d)) && xorb(left(c,d,a), left(c,d,b));
-}
-
-// Returns T iff (a,b,c) are collinear and point c lies 
-// on the closed segement ab.
-static bool between(const int* a, const int* b, const int* c)
-{
-	if (!collinear(a, b, c))
-		return false;
-	// If ab not vertical, check betweenness on x; else on y.
-	if (a[0] != b[0])
-		return	((a[0] <= c[0]) && (c[0] <= b[0])) || ((a[0] >= c[0]) && (c[0] >= b[0]));
-	else
-		return	((a[2] <= c[2]) && (c[2] <= b[2])) || ((a[2] >= c[2]) && (c[2] >= b[2]));
-}
-
-// Returns true iff segments ab and cd intersect, properly or improperly.
-static bool intersect(const int* a, const int* b, const int* c, const int* d)
-{
-	if (intersectProp(a, b, c, d))
-		return true;
-	else if (between(a, b, c) || between(a, b, d) ||
-			 between(c, d, a) || between(c, d, b))
-		return true;
-	else
-		return false;
-}
-
-static bool vequal(const int* a, const int* b)
-{
-	return a[0] == b[0] && a[2] == b[2];
 }
 
 // Returns T iff (v_i, v_j) is a proper internal *or* external
@@ -1113,16 +1037,19 @@ bool rcBuildPolyMesh(rcContext* ctx, rcContourSet& cset, const int nvp, rcPolyMe
 		if (ntris <= 0)
 		{
 			// Bad triangulation, should not happen.
-/*			printf("\tconst float bmin[3] = {%ff,%ff,%ff};\n", cset.bmin[0], cset.bmin[1], cset.bmin[2]);
-			printf("\tconst float cs = %ff;\n", cset.cs);
-			printf("\tconst float ch = %ff;\n", cset.ch);
-			printf("\tconst int verts[] = {\n");
-			for (int k = 0; k < cont.nverts; ++k)
-			{
-				const int* v = &cont.verts[k*4];
-				printf("\t\t%d,%d,%d,%d,\n", v[0], v[1], v[2], v[3]);
-			}
-			printf("\t};\n\tconst int nverts = sizeof(verts)/(sizeof(int)*4);\n");*/
+			//@HG - Converted to use context log
+/*           ctx->log( RC_LOG_PROGRESS, "\tconst float bmin[3] = {%ff,%ff,%ff};\n", cset.bmin[0], cset.bmin[1], cset.bmin[2] );
+             ctx->log( RC_LOG_PROGRESS, "\tconst float cs = %ff;\n", cset.cs );
+             ctx->log( RC_LOG_PROGRESS, "\tconst float ch = %ff;\n", cset.ch);
+             ctx->log( RC_LOG_PROGRESS, "\tconst int verts[] = {\n");
+             for ( int k = 0; k < cont.nverts; ++k )
+             {
+                 const int* v = &cont.verts[ k * 4 ];
+                 ctx->log( RC_LOG_PROGRESS, "\t\t%d,%d,%d,%d,\n", v[ 0 ], v[ 1 ], v[ 2 ], v[ 3 ] );
+ 
+             }
+             ctx->log( RC_LOG_PROGRESS, "\t};\n\tconst int nverts = sizeof(verts)/(sizeof(int)*4);\n"); */
+
 			ctx->log(RC_LOG_WARNING, "rcBuildPolyMesh: Bad triangulation Contour %d.", i);
 			ntris = -ntris;
 		}

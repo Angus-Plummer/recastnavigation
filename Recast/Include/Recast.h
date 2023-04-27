@@ -44,6 +44,8 @@ enum rcTimerLabel
 	RC_TIMER_TOTAL,
 	/// A user defined build time.
 	RC_TIMER_TEMP,
+    /// @HG - new timer specifically for terrain since we don't rasterize tris to make it
+    RC_TIMER_RASTERIZE_TERRAIN,
 	/// The time to rasterize the triangles. (See: #rcRasterizeTriangle)
 	RC_TIMER_RASTERIZE_TRIANGLES,
 	/// The time to build the compact heightfield. (See: #rcBuildCompactHeightfield)
@@ -356,6 +358,7 @@ struct rcCompactHeightfield
 	int width;					///< The width of the heightfield. (Along the x-axis in cell units.)
 	int height;					///< The height of the heightfield. (Along the z-axis in cell units.)
 	int spanCount;				///< The number of spans in the heightfield.
+	unsigned int maxCellSpanCount; ///< The max number of spans in any cell. @HG - Track max spans in any cell for safe mem allocations
 	int walkableHeight;			///< The walkable height used during the build of the field.  (See: rcConfig::walkableHeight)
 	int walkableClimb;			///< The walkable climb used during the build of the field. (See: rcConfig::walkableClimb)
 	int borderSize;				///< The AABB border size used during the build of the field. (See: rcConfig::borderSize)
@@ -528,6 +531,7 @@ public:
 /// @see rcAllocSetCustom
 /// @{
 
+
 /// Allocates a heightfield object using the Recast allocator.
 /// @return A heightfield that is ready for initialization, or null on failure.
 /// @ingroup recast
@@ -624,14 +628,22 @@ static const unsigned short RC_MULTIPLE_REGS = 0;
 /// at tile boundaries.
 /// (Used during the build process.)
 /// @see rcCompactSpan::reg, #rcContour::verts, #rcContour::rverts
-static const int RC_BORDER_VERTEX = 0x10000;
+static const int RC_BORDER_VERTEX = 0x1000000;
 
 /// Area border flag.
 /// If a region ID has this bit set, then the associated element lies on
 /// the border of an area.
 /// (Used during the region and contour build process.)
 /// @see rcCompactSpan::reg, #rcContour::verts, #rcContour::rverts
-static const int RC_AREA_BORDER = 0x20000;
+static const int RC_AREA_BORDER = 0x2000000;
+
+/// @HG - Disjoint neighbor vertex flag.
+/// If a region ID has this bit set, then the associated element has
+/// a neighbor which is not connected parllel to the contour, 
+/// indicating the neighbour tile would have a perpendicular contour there
+/// (Used during the contour build process.)
+/// @see rcCompactSpan::reg, #rcContour::verts, #rcContour::rverts
+static const int RC_ADJ_DISJOINT_VERTEX = 0x4000000;
 
 /// Contour build flags.
 /// @see rcBuildContours
@@ -645,7 +657,9 @@ enum rcBuildContoursFlags
 /// The region id field of a vertex may have several flags applied to it.  So the
 /// fields value can't be used directly.
 /// @see rcContour::verts, rcContour::rverts
-static const int RC_CONTOUR_REG_MASK = 0xffff;
+static const int RC_CONTOUR_REG_MASK  = 0x00ffff;
+// @HG - applied to region id field of contour vertices to extract the area id
+static const int RC_CONTOUR_AREA_MASK = 0xff0000;
 
 /// An value which indicates an invalid index within a mesh.
 /// @note This does not necessarily indicate an error.
@@ -690,6 +704,21 @@ template<class T> inline T rcMax(T a, T b) { return a > b ? a : b; }
 /// @param[in]		a	The value.
 /// @return The absolute value of the specified value.
 template<class T> inline T rcAbs(T a) { return a < 0 ? -a : a; }
+
+// @HG - non branching sign check, copied from kTkMath::Sign
+inline int rcSign(int lInt)
+{ 
+    int          lnSign = 1;
+    unsigned int luSignBit;
+
+    static constexpr unsigned int kxTopBit = 0x80000000;
+
+    luSignBit = (unsigned int)( lInt & kxTopBit );
+    luSignBit = ( luSignBit >> 30 );
+    lnSign   -= (int)luSignBit;
+
+    return lnSign;
+}
 
 /// Returns the square of the value.
 /// @param[in]		a	The value.
@@ -1201,6 +1230,19 @@ bool rcBuildRegions(rcContext* ctx, rcCompactHeightfield& chf, int borderSize, i
 ///  								[Limit: >=0] [Units: vx].
 /// @returns True if the operation completed successfully.
 bool rcBuildLayerRegions(rcContext* ctx, rcCompactHeightfield& chf, int borderSize, int minRegionArea);
+
+/// @HG - Builds region data for the heightfield by partitioning the heightfield in non-overlapping layers.
+/// Similar to rcBuildLayerRegions but works inward from each edge so that tiles can determine
+/// regions of neighbour tile from just a small slice in their border
+/// @ingroup recast
+/// @param[in,out]	ctx				The build context to use during the operation.
+/// @param[in,out]	chf				A populated compact heightfield.
+/// @param[in]		borderSize		The size of the non-navigable border around the heightfield.
+///  								[Limit: >=0] [Units: vx]
+/// @param[in]		minRegionArea	The minimum number of cells allowed to form isolated island areas.
+///  								[Limit: >=0] [Units: vx].
+/// @returns True if the operation completed successfully.
+bool rcBuildLayerRegionsInward( rcContext* ctx, rcCompactHeightfield& lCompactHeightfield, int liBorderSize, int liMinRegionArea, int liMergeRegionArea );
 
 /// Builds region data for the heightfield using simple monotone partitioning.
 /// @ingroup recast 

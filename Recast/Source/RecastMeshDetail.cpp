@@ -24,7 +24,8 @@
 #include "Recast.h"
 #include "RecastAlloc.h"
 #include "RecastAssert.h"
-
+#include "RecastSharedUtilFuncs.h" //@HG
+#include "RecastOptimisationToggle.h" //@HG
 
 static const unsigned RC_UNSET_HEIGHT = 0xffff;
 
@@ -414,6 +415,7 @@ static void completeFacet(rcContext* ctx, const float* pts, int npts, int* edges
 			}
 			else
 			{
+				// @HG - Saw a bug report suggesting this should be before this if section. Consider trying?
 				// Inside epsilon circum circle, do extra tests to make sure the edge is valid.
 				// s-u and t-u cannot overlap with s-pt nor t-pt if they exists.
 				if (overlapEdges(pts, edges, nedges, s,u))
@@ -551,10 +553,6 @@ static float polyMinExtent(const float* verts, const int nverts)
 	}
 	return rcSqrt(minDist);
 }
-
-// Last time I checked the if version got compiled using cmov, which was a lot faster than module (with idiv).
-inline int prev(int i, int n) { return i-1 >= 0 ? i-1 : n-1; }
-inline int next(int i, int n) { return i+1 < n ? i+1 : 0; }
 
 static void triangulateHull(const int /*nverts*/, const float* verts, const int nhull, const int* hull, const int nin, rcIntArray& tris)
 {

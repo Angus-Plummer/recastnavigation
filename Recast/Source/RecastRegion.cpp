@@ -24,6 +24,7 @@
 #include "Recast.h"
 #include "RecastAlloc.h"
 #include "RecastAssert.h"
+#include "RecastOptimisationToggle.h" //@HG
 
 namespace
 {
@@ -1072,12 +1073,14 @@ static bool mergeAndFilterLayerRegions(rcContext* ctx, int minRegionArea,
 			for (int i = (int)c.index, ni = (int)(c.index+c.count); i < ni; ++i)
 			{
 				const rcCompactSpan& s = chf.spans[i];
+				const unsigned char area = chf.areas[i]; //@HG - dont merge diff areas
 				const unsigned short ri = srcReg[i];
 				if (ri == 0 || ri >= nreg) continue;
 				rcRegion& reg = regions[ri];
 				
 				reg.spanCount++;
-				
+				reg.areaType = area; //@HG - dont merge diff areas
+
 				reg.ymin = rcMin(reg.ymin, s.y);
 				reg.ymax = rcMax(reg.ymax, s.y);
 				
@@ -1156,6 +1159,9 @@ static bool mergeAndFilterLayerRegions(rcContext* ctx, int minRegionArea,
 				rcRegion& regn = regions[nei];
 				// Skip already visited.
 				if (regn.id != 0)
+					continue;
+				// @HG - Skip if different area type, do not connect regions with different area type.
+				if ( reg.areaType != regn.areaType )
 					continue;
 				// Skip if the neighbour is overlapping root region.
 				bool overlap = false;
@@ -1368,7 +1374,8 @@ bool rcBuildRegionsMonotone(rcContext* ctx, rcCompactHeightfield& chf,
 	}
 	memset(srcReg,0,sizeof(unsigned short)*chf.spanCount);
 
-	const int nsweeps = rcMax(chf.width,chf.height);
+	//@HG - track max spans per cell for safe sweep allocation
+	const int nsweeps = rcMax(chf.width,chf.height) * chf.maxCellSpanCount;
 	rcScopedDelete<rcSweepSpan> sweeps((rcSweepSpan*)rcAlloc(sizeof(rcSweepSpan)*nsweeps, RC_ALLOC_TEMP));
 	if (!sweeps)
 	{
@@ -1677,7 +1684,8 @@ bool rcBuildLayerRegions(rcContext* ctx, rcCompactHeightfield& chf,
 	}
 	memset(srcReg,0,sizeof(unsigned short)*chf.spanCount);
 	
-	const int nsweeps = rcMax(chf.width,chf.height);
+	//@HG - track max spans per cell for safe sweep allocation
+	const int nsweeps = rcMax(chf.width,chf.height) * chf.maxCellSpanCount;
 	rcScopedDelete<rcSweepSpan> sweeps((rcSweepSpan*)rcAlloc(sizeof(rcSweepSpan)*nsweeps, RC_ALLOC_TEMP));
 	if (!sweeps)
 	{
@@ -1808,4 +1816,305 @@ bool rcBuildLayerRegions(rcContext* ctx, rcCompactHeightfield& chf,
 		chf.spans[i].reg = srcReg[i];
 	
 	return true;
+}
+
+//@HG - New region building that ensures tile edge regions are predictable from neighbours
+bool 
+rcBuildLayerRegionsInward(
+    rcContext* lpContext, 
+    rcCompactHeightfield& lCompactHeightfield, 
+    int liBorderSize, 
+    int liMinRegionArea, 
+    int liMergeRegionArea )
+{
+    // Idea here as similar to rcBuildLayerRegions except that instead of doing sweeps fully from bottom to top of tile
+    // we work inward from each edge separately resulting in 4 triangular quadrants. This way the resulting regions along each edge
+    // have been determined only from the cells at the edge and the neighbouring tiles can produce matching regions in their border areas
+    // allowing us to choose vertices as the same points along the edge as the neighbour tile
+    rcScopedTimer lScopedTimer( lpContext, RC_TIMER_BUILD_REGIONS );
+
+    const int kiWidth = lCompactHeightfield.width;
+    const int kiHeight = lCompactHeightfield.height;
+    unsigned short liRegionIndex = 1;
+
+    rcScopedDelete<unsigned short> lau16SpanRegions( ( unsigned short* )rcAlloc( sizeof( unsigned short ) * lCompactHeightfield.spanCount, RC_ALLOC_TEMP ) );
+    if ( !lau16SpanRegions )
+    {
+        lpContext->log( RC_LOG_ERROR, "BuildLayerRegionsInward: Out of memory 'lau16SpanRegions' (%d).", lCompactHeightfield.spanCount );
+        return false;
+    }
+    memset( lau16SpanRegions, 0, sizeof( unsigned short ) * lCompactHeightfield.spanCount );
+
+    const int liSweepCount = rcMax( lCompactHeightfield.width, lCompactHeightfield.height ) * lCompactHeightfield.maxCellSpanCount;
+    rcScopedDelete<rcSweepSpan> laSweepSpans( ( rcSweepSpan* )rcAlloc( sizeof( rcSweepSpan ) * liSweepCount, RC_ALLOC_TEMP ) );
+    if ( !laSweepSpans )
+    {
+        lpContext->log( RC_LOG_ERROR, "BuildLayerRegionsInward: Out of memory 'laSweepSpans' (%d).", liSweepCount );
+        return false;
+    }
+
+
+    // Mark border regions.
+    if ( liBorderSize > 0 )
+    {
+        // Make sure border will not overflow.
+        const int liBorderWidth = rcMin( kiWidth, liBorderSize );
+        const int liBorderHeight = rcMin( kiHeight, liBorderSize );
+
+        // left
+        paintRectRegion(
+            0,
+            liBorderWidth,
+            0,
+            kiHeight,
+            liRegionIndex | RC_BORDER_REG,
+            lCompactHeightfield,
+            lau16SpanRegions );
+        liRegionIndex++;
+
+        // right
+        paintRectRegion(
+            kiWidth - liBorderWidth,
+            kiWidth,
+            0,
+            kiHeight,
+            liRegionIndex | RC_BORDER_REG,
+            lCompactHeightfield,
+            lau16SpanRegions );
+        liRegionIndex++;
+
+        // bottom
+        paintRectRegion(
+            0,
+            kiWidth,
+            0,
+            liBorderHeight,
+            liRegionIndex | RC_BORDER_REG,
+            lCompactHeightfield,
+            lau16SpanRegions );
+        liRegionIndex++;
+
+        // bottom
+        paintRectRegion(
+            0,
+            kiWidth,
+            kiHeight - liBorderHeight,
+            kiHeight,
+            liRegionIndex | RC_BORDER_REG,
+            lCompactHeightfield,
+            lau16SpanRegions );
+        liRegionIndex++;
+    }
+
+    lCompactHeightfield.borderSize = liBorderSize;
+
+    rcIntArray maiNumConnectionsFromRegionToSweep( 256 );
+
+    for ( int liInDir = 0; liInDir < 4; ++liInDir )
+    {
+        const int liFwdDir = ( liInDir + 1 ) & 0x3;
+        const int liOutDir = ( liInDir + 2 ) & 0x3;
+        const int liBackDir = ( liInDir + 3 ) & 0x3;
+
+        bool lbGreedyQuadrant = liInDir % 2 == 0;
+
+        int liMaxInStep = kiWidth / 2;
+        if ( kiWidth % 2 != 0 && lbGreedyQuadrant )
+        {
+            ++liMaxInStep;
+        }
+
+        auto GetHeightfieldX = [ & ]( int liInStep, int liSideStep )
+        {
+            switch ( liInDir )
+            {
+                case 0: return kiWidth - 1 - liInStep;      // right quadrant
+                case 1: return liSideStep;                  // bot quadrant
+                case 2: return liInStep;                    // left quadrant
+                case 3: return kiWidth - 1 - liSideStep;    // top quadrant
+                default: 
+                    lpContext->log( RC_LOG_ERROR, "BuildLayerRegionsInward: invalid direction (%i).", liInDir );
+                    return 0;
+            }
+        };
+
+        auto GetHeightfieldZ = [ & ]( int liInStep, int liSideStep )
+        {
+            switch ( liInDir )
+            {
+                case 0: return liSideStep;                  // right quadrant
+                case 1: return liInStep;                    // bot quadrant
+                case 2: return kiHeight - 1 - liSideStep;   // left quadrant
+                case 3: return kiHeight - 1 - liInStep;     // top quadrant
+                default:
+                    lpContext->log( RC_LOG_ERROR, "BuildLayerRegionsInward: invalid direction (%i).", liInDir );
+                    return 0;
+            }
+        };
+
+        for ( int liInStep = liBorderSize; liInStep < liMaxInStep; ++liInStep )
+        {
+            // Collect spans from this sweep.
+            maiNumConnectionsFromRegionToSweep.resize( liRegionIndex + 1 );
+            memset( &maiNumConnectionsFromRegionToSweep[ 0 ], 0, sizeof( int ) * liRegionIndex );
+            unsigned short lu16SweepSpanCount = 1; // max id within the sweep
+
+            const int liSideStepOffset = liInStep + ( lbGreedyQuadrant ? 0 : 1 );
+            for ( int liSideStep = liSideStepOffset; liSideStep < kiWidth - liSideStepOffset; ++liSideStep )
+            {
+                int liX = GetHeightfieldX( liInStep, liSideStep );
+                int liZ = GetHeightfieldZ( liInStep, liSideStep );
+
+                const rcCompactCell& lCell = lCompactHeightfield.cells[ liX + liZ * kiWidth ];
+                const int liEndSpanIndex = ( int )( lCell.index + lCell.count );
+                for ( int liSpanIndex = ( int )lCell.index; liSpanIndex < liEndSpanIndex; ++liSpanIndex )
+                {
+                    const rcCompactSpan& lSpan = lCompactHeightfield.spans[ liSpanIndex ];
+                    if ( lCompactHeightfield.areas[ liSpanIndex ] == RC_NULL_AREA )
+                    {
+                        continue;
+                    }
+
+                    // prev connection length ways
+                    unsigned short lu16SweepSpanIndex = 0;
+                    if ( liSideStep > liSideStepOffset
+                        && rcGetCon( lSpan, liBackDir ) != RC_NOT_CONNECTED )
+                    {
+                        const int liNeighbourX = liX + rcGetDirOffsetX( liBackDir );
+                        const int liNeighbourZ = liZ + rcGetDirOffsetY( liBackDir ); // y means z here
+                        const int liNeighbourSpanIndex = ( int )lCompactHeightfield.cells[ liNeighbourX + liNeighbourZ * kiWidth ].index + rcGetCon( lSpan, liBackDir );
+                        if ( ( lau16SpanRegions[ liNeighbourSpanIndex ] & RC_BORDER_REG ) == 0
+                            && lCompactHeightfield.areas[ liSpanIndex ] == lCompactHeightfield.areas[ liNeighbourSpanIndex ] )
+                        {
+                            lu16SweepSpanIndex = lau16SpanRegions[ liNeighbourSpanIndex ]; // region array is used as index lookup
+                        }
+                    }
+
+                    if ( lu16SweepSpanIndex == 0 )
+                    {
+                        // not connected / different area. Add new sweep span
+                        lu16SweepSpanIndex = lu16SweepSpanCount++;
+                        laSweepSpans[ lu16SweepSpanIndex ].id = lu16SweepSpanIndex;
+                        laSweepSpans[ lu16SweepSpanIndex ].ns = 0;
+                        laSweepSpans[ lu16SweepSpanIndex ].nei = 0;
+                    }
+
+                    // outward connection
+                    if ( rcGetCon( lSpan, liOutDir ) != RC_NOT_CONNECTED )
+                    {
+                        const int liNeighbourX = liX + rcGetDirOffsetX( liOutDir );
+                        const int liNeighbourZ = liZ + rcGetDirOffsetY( liOutDir );
+                        const int liNeighbourSpanIndex = ( int )lCompactHeightfield.cells[ liNeighbourX + liNeighbourZ * kiWidth ].index + rcGetCon( lSpan, liOutDir );
+
+                        if ( lau16SpanRegions[ liNeighbourSpanIndex ] != 0
+                            && ( lau16SpanRegions[ liNeighbourSpanIndex ] & RC_BORDER_REG ) == 0
+                            && lCompactHeightfield.areas[ liSpanIndex ] == lCompactHeightfield.areas[ liNeighbourSpanIndex ] )
+                        {
+                            const unsigned short lu16NeighbourRegionId = lau16SpanRegions[ liNeighbourSpanIndex ];
+                            if ( laSweepSpans[ lu16SweepSpanIndex ].nei == 0
+                                || laSweepSpans[ lu16SweepSpanIndex ].nei == lu16NeighbourRegionId )
+                            {
+                                // same outer neighbour as prev (or is first in sweep span)
+                                laSweepSpans[ lu16SweepSpanIndex ].nei = lu16NeighbourRegionId;
+                                laSweepSpans[ lu16SweepSpanIndex ].ns++;
+                                maiNumConnectionsFromRegionToSweep[ lu16NeighbourRegionId ]++;
+                            }
+                            else
+                            {
+                                laSweepSpans[ lu16SweepSpanIndex ].nei = RC_NULL_NEI;
+                            }
+                        }
+                    }
+
+                    lau16SpanRegions[ liSpanIndex ] = lu16SweepSpanIndex; // temp store in regions array for lookup
+                }
+            }
+
+            // Assign region IDs to the spans / row ids
+            for ( int liSweepSpanIndex = 1; liSweepSpanIndex < lu16SweepSpanCount; ++liSweepSpanIndex )
+            {
+                const unsigned short luNeighbourRegionId = laSweepSpans[ liSweepSpanIndex ].nei;
+                if ( luNeighbourRegionId != RC_NULL_NEI
+                    && luNeighbourRegionId != 0
+                    && maiNumConnectionsFromRegionToSweep[ luNeighbourRegionId ] == ( int )laSweepSpans[ liSweepSpanIndex ].ns )
+                {
+                    // merge with outer neighbour region since this span is whole connection with that region
+                    laSweepSpans[ liSweepSpanIndex ].rid = luNeighbourRegionId;
+                }
+                else
+                {
+                    // new region
+                    laSweepSpans[ liSweepSpanIndex ].rid = liRegionIndex++;
+                }
+            }
+
+            // Remap IDs (lau16SpanRegions currently holds row ids for the newly scanned spans)
+            for ( int liSideStep = liSideStepOffset; liSideStep < kiWidth - liSideStepOffset; ++liSideStep )
+            {
+                int liX = GetHeightfieldX( liInStep, liSideStep );
+                int liZ = GetHeightfieldZ( liInStep, liSideStep );
+
+                const rcCompactCell& lCell = lCompactHeightfield.cells[ liX + liZ * kiWidth ];
+                const int liEndSpanIndex = ( int )( lCell.index + lCell.count );
+
+                for ( int liSpanIndex = ( int )lCell.index; liSpanIndex < liEndSpanIndex; ++liSpanIndex )
+                {
+                    unsigned short& lu16RowId = lau16SpanRegions[ liSpanIndex ];
+                    if ( lu16RowId > 0
+                        && lu16RowId < lu16SweepSpanCount )
+                    {
+                        lu16RowId = laSweepSpans[ lu16RowId ].rid;
+                    }
+                }
+            }
+        }
+    }
+
+    lCompactHeightfield.maxRegions = liRegionIndex;
+
+    {
+        rcScopedTimer lScopedTimerFilter( lpContext, RC_TIMER_BUILD_REGIONS_FILTER );
+        static const bool lbUseLayerMerge = true;
+        // Merge regions and filter out small regions.
+        if ( lbUseLayerMerge )
+        {
+            // layer variant
+            if ( !mergeAndFilterLayerRegions(
+                lpContext,
+                liMinRegionArea,
+                lCompactHeightfield.maxRegions,
+                lCompactHeightfield,
+                lau16SpanRegions ) )
+                return false;
+        }
+        else
+        {
+            // monotone variant
+            rcIntArray laiOverlaps;
+            if ( !mergeAndFilterRegions(
+                lpContext,
+                liMinRegionArea,
+                liMergeRegionArea,
+                lCompactHeightfield.maxRegions,
+                lCompactHeightfield,
+                lau16SpanRegions,
+                laiOverlaps ) )
+            {
+                return false;
+            }
+
+            if ( laiOverlaps.size() > 0 )
+            {
+                lpContext->log( RC_LOG_ERROR, "BuildLayerRegionsInward: %d overlapping regions.", laiOverlaps.size() );
+            }
+        }
+    }
+
+    // Store the result out.
+    for ( int ii = 0; ii < lCompactHeightfield.spanCount; ++ii )
+    {
+        lCompactHeightfield.spans[ ii ].reg = lau16SpanRegions[ ii ];
+    }
+
+    return true;
 }

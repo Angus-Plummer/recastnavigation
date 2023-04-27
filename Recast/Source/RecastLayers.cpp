@@ -24,7 +24,7 @@
 #include "Recast.h"
 #include "RecastAlloc.h"
 #include "RecastAssert.h"
-
+#include "RecastOptimisationToggle.h" //@HG
 
 // Must be 255 or smaller (not 256) because layer IDs are stored as
 // a byte where 255 is a special value.

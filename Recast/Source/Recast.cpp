@@ -19,6 +19,8 @@
 #include "Recast.h"
 #include "RecastAlloc.h"
 #include "RecastAssert.h"
+#include "RecastOptimisationToggle.h" //@HG
+#include "RecastSharedUtilFuncs.h" //@HG
 
 #include <math.h>
 #include <string.h>
@@ -177,6 +179,7 @@ rcCompactHeightfield::rcCompactHeightfield()
 : width()
 , height()
 , spanCount()
+, maxCellSpanCount() //@HG - track max cell span count for safer mem allocations
 , walkableHeight()
 , walkableClimb()
 , borderSize()
@@ -492,6 +495,8 @@ bool rcBuildCompactHeightfield(rcContext* context, const int walkableHeight, con
 
 	const int MAX_HEIGHT = 0xffff;
 
+	compactHeightfield.maxCellSpanCount = 0; //@HG - track max cell span count for safer mem allocations
+
 	// Fill in cells and spans.
 	int currentCellIndex = 0;
 	const int numColumns = xSize * zSize;
@@ -522,6 +527,9 @@ bool rcBuildCompactHeightfield(rcContext* context, const int walkableHeight, con
 				cell.count++;
 			}
 		}
+
+		//@HG - track max cell span count for safer mem allocations
+		compactHeightfield.maxCellSpanCount = rcMax( compactHeightfield.maxCellSpanCount, cell.count );
 	}
 	
 	// Find neighbour connections.

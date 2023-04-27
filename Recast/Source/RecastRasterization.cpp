@@ -21,6 +21,8 @@
 #include "Recast.h"
 #include "RecastAlloc.h"
 #include "RecastAssert.h"
+#include "RecastOptimisationToggle.h" //@HG
+
 
 /// Check whether two bounding boxes overlap
 ///

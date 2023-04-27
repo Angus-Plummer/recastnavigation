@@ -20,6 +20,7 @@
 #include "DebugDraw.h"
 #include "RecastDebugDraw.h"
 #include "Recast.h"
+#include "RecastOptimisationToggle.h" //@HG
 
 void duDebugDrawTriMesh(duDebugDraw* dd, const float* verts, int /*nverts*/,
 						const int* tris, const float* normals, int ntris,
@@ -215,6 +216,7 @@ void duDebugDrawCompactHeightfieldSolid(duDebugDraw* dd, const rcCompactHeightfi
 	const float cs = chf.cs;
 	const float ch = chf.ch;
 
+    // draw the heightfield areas as quads
 	dd->begin(DU_DRAW_QUADS);
 	
 	for (int y = 0; y < chf.height; ++y)
@@ -238,7 +240,7 @@ void duDebugDrawCompactHeightfieldSolid(duDebugDraw* dd, const rcCompactHeightfi
 				else
 					color = dd->areaToCol(area);
 				
-				const float fy = chf.bmin[1] + (s.y+1)*ch;
+				const float fy = chf.bmin[1] + (s.y)*ch; //@HG - remove y offset
 				dd->vertex(fx, fy, fz, color);
 				dd->vertex(fx, fy, fz+cs, color);
 				dd->vertex(fx+cs, fy, fz+cs, color);
@@ -271,7 +273,9 @@ void duDebugDrawCompactHeightfieldRegions(duDebugDraw* dd, const rcCompactHeight
 				const rcCompactSpan& s = chf.spans[i];
 				const float fy = chf.bmin[1] + (s.y)*ch;
 				unsigned int color;
-				if (s.reg)
+				if( (s.reg & RC_BORDER_REG) != 0 ) //@HG - separate colour for border
+                    color = duRGBA( 30, 30, 220, 192 );
+				else if (s.reg)
 					color = duIntToCol(s.reg, 192);
 				else
 					color = duRGBA(0,0,0,64);
@@ -313,7 +317,7 @@ void duDebugDrawCompactHeightfieldDistance(duDebugDraw* dd, const rcCompactHeigh
 			for (unsigned i = c.index, ni = c.index+c.count; i < ni; ++i)
 			{
 				const rcCompactSpan& s = chf.spans[i];
-				const float fy = chf.bmin[1] + (s.y+1)*ch;
+				const float fy = chf.bmin[1] + (s.y)*ch; //@HG - remove y offset
 				const unsigned char cd = (unsigned char)(chf.dist[i] * dscale);
 				const unsigned int color = duRGBA(cd,cd,cd,255);
 				dd->vertex(fx, fy, fz, color);
@@ -747,7 +751,7 @@ void duDebugDrawRawContours(duDebugDraw* dd, const rcContourSet& cset, const flo
 		{
 			const int* v = &c.rverts[j*4];
 			float fx = orig[0] + v[0]*cs;
-			float fy = orig[1] + (v[1]+1+(i&1))*ch;
+			float fy = orig[1] + v[1]*ch; //@HG - remove y offset
 			float fz = orig[2] + v[2]*cs;
 			dd->vertex(fx,fy,fz,color);
 			if (j > 0)
@@ -756,7 +760,7 @@ void duDebugDrawRawContours(duDebugDraw* dd, const rcContourSet& cset, const flo
 		// Loop last segment.
 		const int* v = &c.rverts[0];
 		float fx = orig[0] + v[0]*cs;
-		float fy = orig[1] + (v[1]+1+(i&1))*ch;
+		float fy = orig[1] + v[1]*ch; //@HG - remove y offset
 		float fz = orig[2] + v[2]*cs;
 		dd->vertex(fx,fy,fz,color);
 	}
@@ -774,14 +778,26 @@ void duDebugDrawRawContours(duDebugDraw* dd, const rcContourSet& cset, const flo
 			const int* v = &c.rverts[j*4];
 			float off = 0;
 			unsigned int colv = color;
-			if (v[3] & RC_BORDER_VERTEX)
+			//@HG - Colour based on flags
+            if ( v[ 3 ] & RC_ADJ_DISJOINT_VERTEX )
+            {
+                colv = duRGBA( 0, 255, 0, a );
+            }
+			else if (v[3] & RC_BORDER_VERTEX)
 			{
 				colv = duRGBA(255,255,255,a);
-				off = ch*2;
 			}
+            else if ( v[ 3 ] & RC_AREA_BORDER )
+            {
+                colv = duRGBA( 0, 0, 255, a );
+            }
+			else if ( (v[ 3 ] & RC_CONTOUR_REG_MASK) == 0 )
+            {
+                colv = duRGBA( 255, 0, 0, a );
+            }
 			
 			float fx = orig[0] + v[0]*cs;
-			float fy = orig[1] + (v[1]+1+(i&1))*ch + off;
+			float fy = orig[1] + v[1]*ch + off; //@HG - remove y offset
 			float fz = orig[2] + v[2]*cs;
 			dd->vertex(fx,fy,fz, colv);
 		}
@@ -815,11 +831,11 @@ void duDebugDrawContours(duDebugDraw* dd, const rcContourSet& cset, const float 
 			unsigned int col = (va[3] & RC_AREA_BORDER) ? bcolor : color; 
 			float fx,fy,fz;
 			fx = orig[0] + va[0]*cs;
-			fy = orig[1] + (va[1]+1+(i&1))*ch;
+			fy = orig[1] + va[1]*ch; //@HG - remove y offset
 			fz = orig[2] + va[2]*cs;
 			dd->vertex(fx,fy,fz, col);
 			fx = orig[0] + vb[0]*cs;
-			fy = orig[1] + (vb[1]+1+(i&1))*ch;
+			fy = orig[1] + vb[1]*ch; //@HG - remove y offset
 			fz = orig[2] + vb[2]*cs;
 			dd->vertex(fx,fy,fz, col);
 		}
@@ -840,11 +856,11 @@ void duDebugDrawContours(duDebugDraw* dd, const rcContourSet& cset, const float 
 			if (v[3] & RC_BORDER_VERTEX)
 			{
 				colv = duRGBA(255,255,255,a);
-				off = ch*2;
+				//off = ch*2; //@HG - remove y offset
 			}
 
 			float fx = orig[0] + v[0]*cs;
-			float fy = orig[1] + (v[1]+1+(i&1))*ch + off;
+			float fy = orig[1] + v[1]*ch + off; //@HG - remove y offset
 			float fz = orig[2] + v[2]*cs;
 			dd->vertex(fx,fy,fz, colv);
 		}
@@ -887,7 +903,7 @@ void duDebugDrawPolyMesh(duDebugDraw* dd, const struct rcPolyMesh& mesh)
 			{
 				const unsigned short* v = &mesh.verts[vi[k]*3];
 				const float x = orig[0] + v[0]*cs;
-				const float y = orig[1] + (v[1]+1)*ch;
+				const float y = orig[1] + v[1]*ch; //@HG - remove y offset
 				const float z = orig[2] + v[2]*cs;
 				dd->vertex(x,y,z, color);
 			}
@@ -896,7 +912,7 @@ void duDebugDrawPolyMesh(duDebugDraw* dd, const struct rcPolyMesh& mesh)
 	dd->end();
 
 	// Draw neighbours edges
-	const unsigned int coln = duRGBA(0,48,64,32);
+	const unsigned int coln = duRGBA(0,0,0,255); //@HG - brighten internal edge colours
 	dd->begin(DU_DRAW_LINES, 1.5f);
 	for (int i = 0; i < mesh.npolys; ++i)
 	{
@@ -912,7 +928,7 @@ void duDebugDrawPolyMesh(duDebugDraw* dd, const struct rcPolyMesh& mesh)
 			{
 				const unsigned short* v = &mesh.verts[vi[k]*3];
 				const float x = orig[0] + v[0]*cs;
-				const float y = orig[1] + (v[1]+1)*ch + 0.1f;
+				const float y = orig[1] + v[1]*ch + 0.1f; //@HG - remove y offset
 				const float z = orig[2] + v[2]*cs;
 				dd->vertex(x, y, z, coln);
 			}
@@ -935,12 +951,12 @@ void duDebugDrawPolyMesh(duDebugDraw* dd, const struct rcPolyMesh& mesh)
 			
 			unsigned int col = colb;
 			if ((p[nvp+j] & 0xf) != 0xf)
-				col = duRGBA(255,255,255,128);
+				col = duRGBA(255,255,255,220);
 			for (int k = 0; k < 2; ++k)
 			{
 				const unsigned short* v = &mesh.verts[vi[k]*3];
 				const float x = orig[0] + v[0]*cs;
-				const float y = orig[1] + (v[1]+1)*ch + 0.1f;
+				const float y = orig[1] + v[1]*ch + 0.1f; //@HG - remove y offset
 				const float z = orig[2] + v[2]*cs;
 				dd->vertex(x, y, z, col);
 			}
@@ -954,7 +970,7 @@ void duDebugDrawPolyMesh(duDebugDraw* dd, const struct rcPolyMesh& mesh)
 	{
 		const unsigned short* v = &mesh.verts[i*3];
 		const float x = orig[0] + v[0]*cs;
-		const float y = orig[1] + (v[1]+1)*ch + 0.1f;
+		const float y = orig[1] + v[1]*ch + 0.1f; //@HG - remove y offset
 		const float z = orig[2] + v[2]*cs;
 		dd->vertex(x,y,z, colv);
 	}

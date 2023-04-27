@@ -410,7 +410,7 @@ bool duReadCompactHeightfield(struct rcCompactHeightfield& chf, duFileIO* io)
 static void logLine(rcContext& ctx, rcTimerLabel label, const char* name, const float pc)
 {
 	const int t = ctx.getAccumulatedTime(label);
-	if (t < 0) return;
+	if (t <= 0) return; // @HG - skip zero duration
 	ctx.log(RC_LOG_PROGRESS, "%s:\t%.2fms\t(%.1f%%)", name, t/1000.0f, t*pc);
 }
 
@@ -419,7 +419,8 @@ void duLogBuildTimes(rcContext& ctx, const int totalTimeUsec)
 	const float pc = 100.0f / totalTimeUsec;
  
 	ctx.log(RC_LOG_PROGRESS, "Build Times");
-	logLine(ctx, RC_TIMER_RASTERIZE_TRIANGLES,		"- Rasterize", pc);
+	logLine(ctx, RC_TIMER_RASTERIZE_TERRAIN,		"- Rasterize Terrain", pc); // @HG
+	logLine(ctx, RC_TIMER_RASTERIZE_TRIANGLES,		"- Rasterize Tris", pc);
 	logLine(ctx, RC_TIMER_BUILD_COMPACTHEIGHTFIELD,	"- Build Compact", pc);
 	logLine(ctx, RC_TIMER_FILTER_BORDER,				"- Filter Border", pc);
 	logLine(ctx, RC_TIMER_FILTER_WALKABLE,			"- Filter Walkable", pc);

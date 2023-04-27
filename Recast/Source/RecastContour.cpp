@@ -23,17 +23,28 @@
 #include "Recast.h"
 #include "RecastAlloc.h"
 #include "RecastAssert.h"
+#include "RecastSharedUtilFuncs.h" //@HG
+#include "RecastOptimisationToggle.h" //@HG
 
 
 static int getCornerHeight(int x, int y, int i, int dir,
 						   const rcCompactHeightfield& chf,
 						   bool& isBorderVertex)
 {
+	
+    // @HG to ensure that we get the same corner height no matter which of the adjacent cells we start in
+    // we must walk fully in both directions and not just to the diagonally adjacent cell
+	
 	const rcCompactSpan& s = chf.spans[i];
 	int ch = (int)s.y;
-	int dirp = (dir+1) & 0x3;
+	int dirp = (dir+1) & 0x3; // perp dir
 	
 	unsigned int regs[4] = {0,0,0,0};
+	
+	// @HG_Begin
+	int dirr = (dirp+1) & 0x3; // reverse dir
+	int dirpr = (dirr+1) & 0x3; // reverse perp dir
+	// @HG_End
 	
 	// Combine region and area codes in order to prevent
 	// border vertices which are in between two areas to be removed.
@@ -55,6 +66,17 @@ static int getCornerHeight(int x, int y, int i, int dir,
 			const rcCompactSpan& as2 = chf.spans[ai2];
 			ch = rcMax(ch, (int)as2.y);
 			regs[2] = chf.spans[ai2].reg | (chf.areas[ai2] << 16);
+			// @HG Begin
+            if (rcGetCon(as2, dirr) != RC_NOT_CONNECTED)
+            {
+                const int ax3 = ax2 + rcGetDirOffsetX(dirr);
+                const int ay3 = ay2 + rcGetDirOffsetY(dirr);
+                const int ai3 = (int)chf.cells[ax3+ay3*chf.width].index + rcGetCon(as2, dirr);
+                const rcCompactSpan& as3 = chf.spans[ai3];
+                ch = rcMax(ch, (int)as3.y);
+                //regs[3] = chf.spans[ai3].reg | (chf.areas[ai3] << 16);
+            }
+            // @HG End
 		}
 	}
 	if (rcGetCon(s, dirp) != RC_NOT_CONNECTED)
@@ -73,6 +95,17 @@ static int getCornerHeight(int x, int y, int i, int dir,
 			const rcCompactSpan& as2 = chf.spans[ai2];
 			ch = rcMax(ch, (int)as2.y);
 			regs[2] = chf.spans[ai2].reg | (chf.areas[ai2] << 16);
+			// @HG Begin
+            if (rcGetCon(as2, dirpr) != RC_NOT_CONNECTED)
+            {
+                const int ax3 = ax2 + rcGetDirOffsetX(dirpr);
+                const int ay3 = ay2 + rcGetDirOffsetY(dirpr);
+                const int ai3 = (int)chf.cells[ax3+ay3*chf.width].index + rcGetCon(as2, dirpr);
+                const rcCompactSpan& as3 = chf.spans[ai3];
+                ch = rcMax(ch, (int)as3.y);
+                //regs[3] = chf.spans[ai3].reg | (chf.areas[ai3] << 16);
+            }
+            // @HG End
 		}
 	}
 
@@ -117,10 +150,11 @@ static void walkContour(int x, int y, int i,
 	int iter = 0;
 	while (++iter < 40000)
 	{
-		if (flags[i] & (1 << dir))
+		if (flags[i] & (1 << dir)) // => not connected in this dir
 		{
 			// Choose the edge corner
 			bool isBorderVertex = false;
+			bool hasDisjointNeighbour = false; // @HG - track disjoint neighbours
 			bool isAreaBorder = false;
 			int px = x;
 			int py = getCornerHeight(x, y, i, dir, chf, isBorderVertex);
@@ -138,12 +172,23 @@ static void walkContour(int x, int y, int i,
 				const int ax = x + rcGetDirOffsetX(dir);
 				const int ay = y + rcGetDirOffsetY(dir);
 				const int ai = (int)chf.cells[ax+ay*chf.width].index + rcGetCon(s, dir);
-				r = (int)chf.spans[ai].reg;
-				if (area != chf.areas[ai])
+                const rcCompactSpan& as = chf.spans[ ai ];
+                r = (int)as.reg | ( (int)chf.areas[ ai ] << 16 ); // @HG - combine region and area. see RC_CONTOUR_AREA_MASK
+
+                if (area != chf.areas[ai])
 					isAreaBorder = true;
+
+                // @HG - also check if there is border on other side of contour
+                int dirp = ( dir + 1 ) & 0x3; // perp dir
+                hasDisjointNeighbour = rcGetCon( as, dirp ) == RC_NOT_CONNECTED;
 			}
-			if (isBorderVertex)
+			
+			// @HG - disjoint neighbours
+            if ( hasDisjointNeighbour )
+                r |= RC_ADJ_DISJOINT_VERTEX;
+			else if (isBorderVertex)
 				r |= RC_BORDER_VERTEX;
+
 			if (isAreaBorder)
 				r |= RC_AREA_BORDER;
 			points.push(px);
@@ -154,7 +199,7 @@ static void walkContour(int x, int y, int i,
 			flags[i] &= ~(1 << dir); // Remove visited edges
 			dir = (dir+1) & 0x3;  // Rotate CW
 		}
-		else
+		else // connected in dir
 		{
 			int ni = -1;
 			const int nx = x + rcGetDirOffsetX(dir);
@@ -213,7 +258,10 @@ static void simplifyContour(rcIntArray& points, rcIntArray& simplified,
 	bool hasConnections = false;
 	for (int i = 0; i < points.size(); i += 4)
 	{
-		if ((points[i+3] & RC_CONTOUR_REG_MASK) != 0)
+        const int reg = points[i+3];
+
+		if ((reg & (RC_CONTOUR_REG_MASK | RC_CONTOUR_AREA_MASK)) != 0 // @HG - contour area mask added
+            || (reg & RC_ADJ_DISJOINT_VERTEX) != 0 ) //@HG - check for disjoint contour vert
 		{
 			hasConnections = true;
 			break;
@@ -227,10 +275,16 @@ static void simplifyContour(rcIntArray& points, rcIntArray& simplified,
 		for (int i = 0, ni = points.size()/4; i < ni; ++i)
 		{
 			int ii = (i+1) % ni;
-			const bool differentRegs = (points[i*4+3] & RC_CONTOUR_REG_MASK) != (points[ii*4+3] & RC_CONTOUR_REG_MASK);
-			const bool areaBorders = (points[i*4+3] & RC_AREA_BORDER) != (points[ii*4+3] & RC_AREA_BORDER);
-			if (differentRegs || areaBorders)
+            int& ireg = points[i*4+3];
+            const int iireg = points[ii*4+3];
+            const bool differentRegs = ( ireg & ( RC_CONTOUR_REG_MASK | RC_CONTOUR_AREA_MASK ) ) != ( iireg & ( RC_CONTOUR_REG_MASK | RC_CONTOUR_AREA_MASK ) ); //@HG - check area as well as region change
+			const bool areaBorders = (ireg & RC_AREA_BORDER) != (iireg & RC_AREA_BORDER);
+			const bool hasDisjointNeighbour = (ireg & RC_ADJ_DISJOINT_VERTEX); //@HG - Check for disjoint neighbour
+			if (differentRegs || areaBorders || hasDisjointNeighbour )
 			{
+				// @HG - remove border vert flag for any of these mandatory verts
+				// so we cant remove it later
+				ireg = ireg & ~RC_BORDER_VERTEX;
 				simplified.push(points[i*4+0]);
 				simplified.push(points[i*4+1]);
 				simplified.push(points[i*4+2]);
@@ -445,7 +499,7 @@ static void simplifyContour(rcIntArray& points, rcIntArray& simplified,
 		// and the neighbour region is take from the next raw point.
 		const int ai = (simplified[i*4+3]+1) % pn;
 		const int bi = simplified[i*4+3];
-		simplified[i*4+3] = (points[ai*4+3] & (RC_CONTOUR_REG_MASK|RC_AREA_BORDER)) | (points[bi*4+3] & RC_BORDER_VERTEX);
+		simplified[i*4+3] = (points[ai*4+3] & (RC_CONTOUR_REG_MASK|RC_CONTOUR_AREA_MASK|RC_AREA_BORDER)) | (points[bi*4+3] & RC_BORDER_VERTEX); //@HG - contour area mask
 	}
 	
 }
@@ -459,86 +513,8 @@ static int calcAreaOfPolygon2D(const int* verts, const int nverts)
 		const int* vj = &verts[j*4];
 		area += vi[0] * vj[2] - vj[0] * vi[2];
 	}
-	return (area+1) / 2;
-}
-
-// TODO: these are the same as in RecastMesh.cpp, consider using the same.
-// Last time I checked the if version got compiled using cmov, which was a lot faster than module (with idiv).
-inline int prev(int i, int n) { return i-1 >= 0 ? i-1 : n-1; }
-inline int next(int i, int n) { return i+1 < n ? i+1 : 0; }
-
-inline int area2(const int* a, const int* b, const int* c)
-{
-	return (b[0] - a[0]) * (c[2] - a[2]) - (c[0] - a[0]) * (b[2] - a[2]);
-}
-
-//	Exclusive or: true iff exactly one argument is true.
-//	The arguments are negated to ensure that they are 0/1
-//	values.  Then the bitwise Xor operator may apply.
-//	(This idea is due to Michael Baldwin.)
-inline bool xorb(bool x, bool y)
-{
-	return !x ^ !y;
-}
-
-// Returns true iff c is strictly to the left of the directed
-// line through a to b.
-inline bool left(const int* a, const int* b, const int* c)
-{
-	return area2(a, b, c) < 0;
-}
-
-inline bool leftOn(const int* a, const int* b, const int* c)
-{
-	return area2(a, b, c) <= 0;
-}
-
-inline bool collinear(const int* a, const int* b, const int* c)
-{
-	return area2(a, b, c) == 0;
-}
-
-//	Returns true iff ab properly intersects cd: they share
-//	a point interior to both segments.  The properness of the
-//	intersection is ensured by using strict leftness.
-static bool intersectProp(const int* a, const int* b, const int* c, const int* d)
-{
-	// Eliminate improper cases.
-	if (collinear(a,b,c) || collinear(a,b,d) ||
-		collinear(c,d,a) || collinear(c,d,b))
-		return false;
-	
-	return xorb(left(a,b,c), left(a,b,d)) && xorb(left(c,d,a), left(c,d,b));
-}
-
-// Returns T iff (a,b,c) are collinear and point c lies
-// on the closed segement ab.
-static bool between(const int* a, const int* b, const int* c)
-{
-	if (!collinear(a, b, c))
-		return false;
-	// If ab not vertical, check betweenness on x; else on y.
-	if (a[0] != b[0])
-		return	((a[0] <= c[0]) && (c[0] <= b[0])) || ((a[0] >= c[0]) && (c[0] >= b[0]));
-	else
-		return	((a[2] <= c[2]) && (c[2] <= b[2])) || ((a[2] >= c[2]) && (c[2] >= b[2]));
-}
-
-// Returns true iff segments ab and cd intersect, properly or improperly.
-static bool intersect(const int* a, const int* b, const int* c, const int* d)
-{
-	if (intersectProp(a, b, c, d))
-		return true;
-	else if (between(a, b, c) || between(a, b, d) ||
-			 between(c, d, a) || between(c, d, b))
-		return true;
-	else
-		return false;
-}
-
-static bool vequal(const int* a, const int* b)
-{
-	return a[0] == b[0] && a[2] == b[2];
+    // @HG - To round up the area we must add the sign of area otherwise negative areas get rounded down
+    return  ( area + rcSign( area ) ) / 2;
 }
 
 static bool intersectSegCountour(const int* d0, const int* d1, int i, int n, const int* verts)
@@ -777,7 +753,8 @@ static void mergeRegionHoles(rcContext* ctx, rcContourRegion& region)
 			for (int j = 0; j < ndiags; j++)
 			{
 				const int* pt = &outline->verts[diags[j].vert*4];
-				bool intersect = intersectSegCountour(pt, corner, diags[i].vert, outline->nverts, outline->verts);
+				// @HG - fix incorrect index in diags i->j
+				bool intersect = intersectSegCountour(pt, corner, diags[j].vert, outline->nverts, outline->verts);
 				for (int k = i; k < region.nholes && !intersect; k++)
 					intersect |= intersectSegCountour(pt, corner, -1, region.holes[k].contour->nverts, region.holes[k].contour->verts);
 				if (!intersect)
@@ -1019,7 +996,7 @@ bool rcBuildContours(rcContext* ctx, rcCompactHeightfield& chf,
 		{
 			rcContour& cont = cset.conts[i];
 			// If the contour is wound backwards, it is a hole.
-			winding[i] = calcAreaOfPolygon2D(cont.verts, cont.nverts) < 0 ? -1 : 1;
+			winding[i] = calcAreaOfPolygon2D(cont.verts, cont.nverts) <= 0 ? -1 : 1; // @HG - area 0 -> treat as hole
 			if (winding[i] < 0)
 				nholes++;
 		}
