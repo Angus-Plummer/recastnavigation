@@ -1,4 +1,3 @@
-//
 // Copyright (c) 2009-2010 Mikko Mononen memon@inside.org
 //
 // This software is provided 'as-is', without any express or implied
@@ -17,6 +16,7 @@
 //
 
 #include "RecastAlloc.h"
+#include <string.h>
 
 static void* rcAllocDefault(size_t size, rcAllocHint)
 {
@@ -28,24 +28,49 @@ static void rcFreeDefault(void *ptr)
 	free(ptr);
 }
 
+void rcMemCpy(void* dst, void* src, size_t size)
+{
+	memcpy(dst, src, size);
+}
+
 static rcAllocFunc* sRecastAllocFunc = rcAllocDefault;
 static rcFreeFunc* sRecastFreeFunc = rcFreeDefault;
 
-void rcAllocSetCustom(rcAllocFunc* allocFunc, rcFreeFunc* freeFunc)
+/// @see rcAlloc, rcFree
+void rcAllocSetCustom(rcAllocFunc *allocFunc, rcFreeFunc *freeFunc)
 {
 	sRecastAllocFunc = allocFunc ? allocFunc : rcAllocDefault;
 	sRecastFreeFunc = freeFunc ? freeFunc : rcFreeDefault;
 }
 
+/// @see rcAllocSetCustom
 void* rcAlloc(size_t size, rcAllocHint hint)
 {
 	return sRecastAllocFunc(size, hint);
 }
 
+/// @par
+///
+/// @warning This function leaves the value of @p ptr unchanged.  So it still
+/// points to the same (now invalid) location, and not to null.
+/// 
+/// @see rcAllocSetCustom
 void rcFree(void* ptr)
 {
-	if (ptr != NULL)
-	{
+	if (ptr)
 		sRecastFreeFunc(ptr);
-	}
 }
+
+
+// @HG BEGIN: added contains()
+bool rcIntArray::contains(int v) const
+{
+	for (int i = 0; i < size(); i++)
+	{
+		if (m_impl[i] == v)
+			return true;
+	}
+
+	return false;
+}
+// @HG END

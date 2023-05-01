@@ -20,7 +20,7 @@
 #include "DebugDraw.h"
 #include "DetourMath.h"
 #include "DetourNavMesh.h"
-
+#include "RecastAlloc.h"
 
 duDebugDraw::~duDebugDraw()
 {
@@ -75,8 +75,8 @@ void duCalcBoxColors(unsigned int* colors, unsigned int colTop, unsigned int col
 	colors[5] = duMultCol(colSide, 217);
 }
 
-void duDebugDrawCylinderWire(struct duDebugDraw* dd, float minx, float miny, float minz,
-							 float maxx, float maxy, float maxz, unsigned int col, const float lineWidth)
+void duDebugDrawCylinderWire(struct duDebugDraw* dd, duReal minx, duReal miny, duReal minz,
+							 duReal maxx, duReal maxy, duReal maxz, unsigned int col, const float lineWidth)
 {
 	if (!dd) return;
 	
@@ -85,8 +85,8 @@ void duDebugDrawCylinderWire(struct duDebugDraw* dd, float minx, float miny, flo
 	dd->end();
 }
 
-void duDebugDrawBoxWire(struct duDebugDraw* dd, float minx, float miny, float minz,
-						float maxx, float maxy, float maxz, unsigned int col, const float lineWidth)
+void duDebugDrawBoxWire(struct duDebugDraw* dd, duReal minx, duReal miny, duReal minz,
+						duReal maxx, duReal maxy, duReal maxz, unsigned int col, const float lineWidth)
 {
 	if (!dd) return;
 	
@@ -95,9 +95,9 @@ void duDebugDrawBoxWire(struct duDebugDraw* dd, float minx, float miny, float mi
 	dd->end();
 }
 
-void duDebugDrawArc(struct duDebugDraw* dd, const float x0, const float y0, const float z0,
-					const float x1, const float y1, const float z1, const float h,
-					const float as0, const float as1, unsigned int col, const float lineWidth)
+void duDebugDrawArc(struct duDebugDraw* dd, const duReal x0, const duReal y0, const duReal z0,
+					const duReal x1, const duReal y1, const duReal z1, const duReal h,
+					const duReal as0, const duReal as1, unsigned int col, const float lineWidth)
 {
 	if (!dd) return;
 	
@@ -106,9 +106,9 @@ void duDebugDrawArc(struct duDebugDraw* dd, const float x0, const float y0, cons
 	dd->end();
 }
 
-void duDebugDrawArrow(struct duDebugDraw* dd, const float x0, const float y0, const float z0,
-					  const float x1, const float y1, const float z1,
-					  const float as0, const float as1, unsigned int col, const float lineWidth)
+void duDebugDrawArrow(struct duDebugDraw* dd, const duReal x0, const duReal y0, const duReal z0,
+					  const duReal x1, const duReal y1, const duReal z1,
+					  const duReal as0, const duReal as1, unsigned int col, const float lineWidth)
 {
 	if (!dd) return;
 	
@@ -117,8 +117,8 @@ void duDebugDrawArrow(struct duDebugDraw* dd, const float x0, const float y0, co
 	dd->end();
 }
 
-void duDebugDrawCircle(struct duDebugDraw* dd, const float x, const float y, const float z,
-					   const float r, unsigned int col, const float lineWidth)
+void duDebugDrawCircle(struct duDebugDraw* dd, const duReal x, const duReal y, const duReal z,
+					   const duReal r, unsigned int col, const float lineWidth)
 {
 	if (!dd) return;
 	
@@ -127,8 +127,8 @@ void duDebugDrawCircle(struct duDebugDraw* dd, const float x, const float y, con
 	dd->end();
 }
 
-void duDebugDrawCross(struct duDebugDraw* dd, const float x, const float y, const float z,
-					  const float size, unsigned int col, const float lineWidth)
+void duDebugDrawCross(struct duDebugDraw* dd, const duReal x, const duReal y, const duReal z,
+					  const duReal size, unsigned int col, const float lineWidth)
 {
 	if (!dd) return;
 	
@@ -137,8 +137,8 @@ void duDebugDrawCross(struct duDebugDraw* dd, const float x, const float y, cons
 	dd->end();
 }
 
-void duDebugDrawBox(struct duDebugDraw* dd, float minx, float miny, float minz,
-					float maxx, float maxy, float maxz, const unsigned int* fcol)
+void duDebugDrawBox(struct duDebugDraw* dd, duReal minx, duReal miny, duReal minz,
+					duReal maxx, duReal maxy, duReal maxz, const unsigned int* fcol)
 {
 	if (!dd) return;
 	
@@ -147,8 +147,8 @@ void duDebugDrawBox(struct duDebugDraw* dd, float minx, float miny, float minz,
 	dd->end();
 }
 
-void duDebugDrawCylinder(struct duDebugDraw* dd, float minx, float miny, float minz,
-						 float maxx, float maxy, float maxz, unsigned int col)
+void duDebugDrawCylinder(struct duDebugDraw* dd, duReal minx, duReal miny, duReal minz,
+						 duReal maxx, duReal maxy, duReal maxz, unsigned int col)
 {
 	if (!dd) return;
 	
@@ -157,8 +157,8 @@ void duDebugDrawCylinder(struct duDebugDraw* dd, float minx, float miny, float m
 	dd->end();
 }
 
-void duDebugDrawGridXZ(struct duDebugDraw* dd, const float ox, const float oy, const float oz,
-					   const int w, const int h, const float size,
+void duDebugDrawGridXZ(struct duDebugDraw* dd, const duReal ox, const duReal oy, const duReal oz,
+					   const int w, const int h, const duReal size,
 					   const unsigned int col, const float lineWidth)
 {
 	if (!dd) return;
@@ -178,29 +178,29 @@ void duDebugDrawGridXZ(struct duDebugDraw* dd, const float ox, const float oy, c
 }
 		 
 
-void duAppendCylinderWire(struct duDebugDraw* dd, float minx, float miny, float minz,
-						  float maxx, float maxy, float maxz, unsigned int col)
+void duAppendCylinderWire(struct duDebugDraw* dd, duReal minx, duReal miny, duReal minz,
+						  duReal maxx, duReal maxy, duReal maxz, unsigned int col)
 {
 	if (!dd) return;
 
 	static const int NUM_SEG = 16;
-	static float dir[NUM_SEG*2];
+	static duReal dir[NUM_SEG*2];
 	static bool init = false;
 	if (!init)
 	{
 		init = true;
 		for (int i = 0; i < NUM_SEG; ++i)
 		{
-			const float a = (float)i/(float)NUM_SEG*DU_PI*2;
-			dir[i*2] = dtMathCosf(a);
-			dir[i*2+1] = dtMathSinf(a);
+			const duReal a = (duReal)i/(duReal)NUM_SEG*DU_PI*2;
+			dir[i*2] = duCos(a);
+			dir[i*2+1] = duSin(a);
 		}
 	}
 	
-	const float cx = (maxx + minx)/2;
-	const float cz = (maxz + minz)/2;
-	const float rx = (maxx - minx)/2;
-	const float rz = (maxz - minz)/2;
+	const duReal cx = (maxx + minx)/2;
+	const duReal cz = (maxz + minz)/2;
+	const duReal rx = (maxx - minx)/2;
+	const duReal rz = (maxz - minz)/2;
 	
 	for (int i = 0, j = NUM_SEG-1; i < NUM_SEG; j = i++)
 	{
@@ -216,8 +216,8 @@ void duAppendCylinderWire(struct duDebugDraw* dd, float minx, float miny, float 
 	}
 }
 
-void duAppendBoxWire(struct duDebugDraw* dd, float minx, float miny, float minz,
-					 float maxx, float maxy, float maxz, unsigned int col)
+void duAppendBoxWire(struct duDebugDraw* dd, duReal minx, duReal miny, duReal minz,
+					 duReal maxx, duReal maxy, duReal maxz, unsigned int col)
 {
 	if (!dd) return;
 	// Top
@@ -251,8 +251,8 @@ void duAppendBoxWire(struct duDebugDraw* dd, float minx, float miny, float minz,
 	dd->vertex(minx, maxy, maxz, col);
 }
 
-void duAppendBoxPoints(struct duDebugDraw* dd, float minx, float miny, float minz,
-					   float maxx, float maxy, float maxz, unsigned int col)
+void duAppendBoxPoints(struct duDebugDraw* dd, duReal minx, duReal miny, duReal minz,
+					   duReal maxx, duReal maxy, duReal maxz, unsigned int col)
 {
 	if (!dd) return;
 	// Top
@@ -276,11 +276,11 @@ void duAppendBoxPoints(struct duDebugDraw* dd, float minx, float miny, float min
 	dd->vertex(minx, maxy, minz, col);
 }
 
-void duAppendBox(struct duDebugDraw* dd, float minx, float miny, float minz,
-				 float maxx, float maxy, float maxz, const unsigned int* fcol)
+void duAppendBox(struct duDebugDraw* dd, duReal minx, duReal miny, duReal minz,
+				 duReal maxx, duReal maxy, duReal maxz, const unsigned int* fcol)
 {
 	if (!dd) return;
-	const float verts[8*3] =
+	const duReal verts[8*3] =
 	{
 		minx, miny, minz,
 		maxx, miny, minz,
@@ -311,31 +311,31 @@ void duAppendBox(struct duDebugDraw* dd, float minx, float miny, float minz,
 	}
 }
 
-void duAppendCylinder(struct duDebugDraw* dd, float minx, float miny, float minz,
-					  float maxx, float maxy, float maxz, unsigned int col)
+void duAppendCylinder(struct duDebugDraw* dd, duReal minx, duReal miny, duReal minz,
+					  duReal maxx, duReal maxy, duReal maxz, unsigned int col)
 {
 	if (!dd) return;
 	
 	static const int NUM_SEG = 16;
-	static float dir[NUM_SEG*2];
+	static duReal dir[NUM_SEG*2];
 	static bool init = false;
 	if (!init)
 	{
 		init = true;
 		for (int i = 0; i < NUM_SEG; ++i)
 		{
-			const float a = (float)i/(float)NUM_SEG*DU_PI*2;
-			dir[i*2] = cosf(a);
-			dir[i*2+1] = sinf(a);
+			const duReal a = (duReal)i/(duReal)NUM_SEG*DU_PI*2;
+			dir[i*2] = duCos(a);
+			dir[i*2+1] = duSin(a);
 		}
 	}
 	
 	unsigned int col2 = duMultCol(col, 160);
 	
-	const float cx = (maxx + minx)/2;
-	const float cz = (maxz + minz)/2;
-	const float rx = (maxx - minx)/2;
-	const float rz = (maxz - minz)/2;
+	const duReal cx = (maxx + minx)/2;
+	const duReal cz = (maxz + minz)/2;
+	const duReal rx = (maxx - minx)/2;
+	const duReal rz = (maxz - minz)/2;
 
 	for (int i = 2; i < NUM_SEG; ++i)
 	{
@@ -364,9 +364,9 @@ void duAppendCylinder(struct duDebugDraw* dd, float minx, float miny, float minz
 }
 
 
-inline void evalArc(const float x0, const float y0, const float z0,
-					const float dx, const float dy, const float dz,
-					const float h, const float u, float* res)
+inline void evalArc(const duReal x0, const duReal y0, const duReal z0,
+					const duReal dx, const duReal dy, const duReal dz,
+					const duReal h, const duReal u, duReal* res)
 {
 	res[0] = x0 + dx * u;
 	res[1] = y0 + dy * u + h * (1-(u*2-1)*(u*2-1));
@@ -374,44 +374,44 @@ inline void evalArc(const float x0, const float y0, const float z0,
 }
 
 
-inline void vcross(float* dest, const float* v1, const float* v2)
+inline void vcross(duReal* dest, const duReal* v1, const duReal* v2)
 {
 	dest[0] = v1[1]*v2[2] - v1[2]*v2[1];
 	dest[1] = v1[2]*v2[0] - v1[0]*v2[2];
 	dest[2] = v1[0]*v2[1] - v1[1]*v2[0]; 
 }
 
-inline void vnormalize(float* v)
+inline void vnormalize(duReal* v)
 {
-	float d = 1.0f / sqrtf(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+	duReal d = 1.0f / duSqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
 	v[0] *= d;
 	v[1] *= d;
 	v[2] *= d;
 }
 
-inline void vsub(float* dest, const float* v1, const float* v2)
+inline void vsub(duReal* dest, const duReal* v1, const duReal* v2)
 {
 	dest[0] = v1[0]-v2[0];
 	dest[1] = v1[1]-v2[1];
 	dest[2] = v1[2]-v2[2];
 }
 
-inline float vdistSqr(const float* v1, const float* v2)
+inline duReal vdistSqr(const duReal* v1, const duReal* v2)
 {
-	const float x = v1[0]-v2[0];
-	const float y = v1[1]-v2[1];
-	const float z = v1[2]-v2[2];
+	const duReal x = v1[0]-v2[0];
+	const duReal y = v1[1]-v2[1];
+	const duReal z = v1[2]-v2[2];
 	return x*x + y*y + z*z;
 }
 
 
-void appendArrowHead(struct duDebugDraw* dd, const float* p, const float* q,
-					 const float s, unsigned int col)
+void appendArrowHead(struct duDebugDraw* dd, const duReal* p, const duReal* q,
+					 const duReal s, unsigned int col)
 {
-	const float eps = 0.001f;
+	const duReal eps = 0.001f;
 	if (!dd) return;
 	if (vdistSqr(p,q) < eps*eps) return;
-	float ax[3], ay[3] = {0,1,0}, az[3];
+	duReal ax[3], ay[3] = {0,1,0}, az[3];
 	vsub(az, q, p);
 	vnormalize(az);
 	vcross(ax, ay, az);
@@ -428,24 +428,24 @@ void appendArrowHead(struct duDebugDraw* dd, const float* p, const float* q,
 	
 }
 
-void duAppendArc(struct duDebugDraw* dd, const float x0, const float y0, const float z0,
-				 const float x1, const float y1, const float z1, const float h,
-				 const float as0, const float as1, unsigned int col)
+void duAppendArc(struct duDebugDraw* dd, const duReal x0, const duReal y0, const duReal z0,
+				 const duReal x1, const duReal y1, const duReal z1, const duReal h,
+				 const duReal as0, const duReal as1, unsigned int col)
 {
 	if (!dd) return;
 	static const int NUM_ARC_PTS = 8;
-	static const float PAD = 0.05f;
-	static const float ARC_PTS_SCALE = (1.0f-PAD*2) / (float)NUM_ARC_PTS;
-	const float dx = x1 - x0;
-	const float dy = y1 - y0;
-	const float dz = z1 - z0;
-	const float len = sqrtf(dx*dx + dy*dy + dz*dz);
-	float prev[3];
+	static const duReal PAD = 0.05f;
+	static const duReal ARC_PTS_SCALE = (1.0f-PAD*2) / (duReal)NUM_ARC_PTS;
+	const duReal dx = x1 - x0;
+	const duReal dy = y1 - y0;
+	const duReal dz = z1 - z0;
+	const duReal len = duSqrt(dx*dx + dy*dy + dz*dz);
+	duReal prev[3];
 	evalArc(x0,y0,z0, dx,dy,dz, len*h, PAD, prev);
 	for (int i = 1; i <= NUM_ARC_PTS; ++i)
 	{
-		const float u = PAD + i * ARC_PTS_SCALE;
-		float pt[3];
+		const duReal u = PAD + i * ARC_PTS_SCALE;
+		duReal pt[3];
 		evalArc(x0,y0,z0, dx,dy,dz, len*h, u, pt);
 		dd->vertex(prev[0],prev[1],prev[2], col);
 		dd->vertex(pt[0],pt[1],pt[2], col);
@@ -455,7 +455,7 @@ void duAppendArc(struct duDebugDraw* dd, const float x0, const float y0, const f
 	// End arrows
 	if (as0 > 0.001f)
 	{
-		float p[3], q[3];
+		duReal p[3], q[3];
 		evalArc(x0,y0,z0, dx,dy,dz, len*h, PAD, p);
 		evalArc(x0,y0,z0, dx,dy,dz, len*h, PAD+0.05f, q);
 		appendArrowHead(dd, p, q, as0, col);
@@ -463,45 +463,90 @@ void duAppendArc(struct duDebugDraw* dd, const float x0, const float y0, const f
 
 	if (as1 > 0.001f)
 	{
-		float p[3], q[3];
+		duReal p[3], q[3];
 		evalArc(x0,y0,z0, dx,dy,dz, len*h, 1-PAD, p);
 		evalArc(x0,y0,z0, dx,dy,dz, len*h, 1-(PAD+0.05f), q);
 		appendArrowHead(dd, p, q, as1, col);
 	}
 }
 
-void duAppendArrow(struct duDebugDraw* dd, const float x0, const float y0, const float z0,
-				   const float x1, const float y1, const float z1,
-				   const float as0, const float as1, unsigned int col)
+void duAppendArcSegment(struct duDebugDraw* dd, const duReal xA0, const duReal yA0, const duReal zA0,
+	const duReal xA1, const duReal yA1, const duReal zA1,
+	const duReal xB0, const duReal yB0, const duReal zB0,
+	const duReal xB1, const duReal yB1, const duReal zB1,
+	const duReal h, unsigned int col)
+{
+	if (!dd) return;
+	static const int NUM_ARC_PTS = 8;
+	static const duReal PAD = 0.05f;
+	static const duReal ARC_PTS_SCALE = (1.0f-PAD*2) / (duReal)NUM_ARC_PTS;
+	const duReal dx0 = xB0 - xA0;
+	const duReal dy0 = yB0 - yA0;
+	const duReal dz0 = zB0 - zA0;
+	const duReal dx1 = xB1 - xA1;
+	const duReal dy1 = yB1 - yA1;
+	const duReal dz1 = zB1 - zA1;
+	const duReal len0 = duSqrt(dx0*dx0 + dy0*dy0 + dz0*dz0);
+	const duReal len1 = duSqrt(dx1*dx1 + dy1*dy1 + dz1*dz1);
+	duReal prev0[3];
+	duReal prev1[3];
+	evalArc(xA0,yA0,zA0, dx0,dy0,dz0, len0*h, PAD, prev0);
+	evalArc(xA1,yA1,zA1, dx1,dy1,dz1, len1*h, PAD, prev1);
+	for (int i = 1; i <= NUM_ARC_PTS; ++i)
+	{
+		const duReal u = PAD + i * ARC_PTS_SCALE;
+		duReal pt0[3];
+		duReal pt1[3];
+		evalArc(xA0,yA0,zA0, dx0,dy0,dz0, len0*h, u, pt0);
+		evalArc(xA1,yA1,zA1, dx1,dy1,dz1, len1*h, u, pt1);
+		
+		dd->vertex(pt0[0],pt0[1],pt0[2], col);
+		dd->vertex(pt1[0],pt1[1],pt1[2], col);
+		dd->vertex(prev1[0],prev1[1],prev1[2], col);
+		dd->vertex(prev0[0],prev0[1],prev0[2], col);
+
+		dd->vertex(prev0[0],prev0[1],prev0[2], col);
+		dd->vertex(prev1[0],prev1[1],prev1[2], col);
+		dd->vertex(pt1[0],pt1[1],pt1[2], col);
+		dd->vertex(pt0[0],pt0[1],pt0[2], col);
+
+		prev0[0] = pt0[0]; prev0[1] = pt0[1]; prev0[2] = pt0[2];
+		prev1[0] = pt1[0]; prev1[1] = pt1[1]; prev1[2] = pt1[2];
+	}
+}
+
+void duAppendArrow(struct duDebugDraw* dd, const duReal x0, const duReal y0, const duReal z0,
+	const duReal x1, const duReal y1, const duReal z1,
+	const duReal as0, const duReal as1, unsigned int col)
 {
 	if (!dd) return;
 
 	dd->vertex(x0,y0,z0, col);
 	dd->vertex(x1,y1,z1, col);
-	
+
 	// End arrows
-	const float p[3] = {x0,y0,z0}, q[3] = {x1,y1,z1};
+	const duReal p[3] = {x0,y0,z0}, q[3] = {x1,y1,z1};
 	if (as0 > 0.001f)
 		appendArrowHead(dd, p, q, as0, col);
 	if (as1 > 0.001f)
 		appendArrowHead(dd, q, p, as1, col);
 }
 
-void duAppendCircle(struct duDebugDraw* dd, const float x, const float y, const float z,
-					const float r, unsigned int col)
+void duAppendCircle(struct duDebugDraw* dd, const duReal x, const duReal y, const duReal z,
+					const duReal r, unsigned int col)
 {
 	if (!dd) return;
 	static const int NUM_SEG = 40;
-	static float dir[40*2];
+	static duReal dir[40*2];
 	static bool init = false;
 	if (!init)
 	{
 		init = true;
 		for (int i = 0; i < NUM_SEG; ++i)
 		{
-			const float a = (float)i/(float)NUM_SEG*DU_PI*2;
-			dir[i*2] = cosf(a);
-			dir[i*2+1] = sinf(a);
+			const duReal a = (duReal)i/(duReal)NUM_SEG*DU_PI*2;
+			dir[i*2] = duCos(a);
+			dir[i*2+1] = duSin(a);
 		}
 	}
 	
@@ -512,8 +557,8 @@ void duAppendCircle(struct duDebugDraw* dd, const float x, const float y, const 
 	}
 }
 
-void duAppendCross(struct duDebugDraw* dd, const float x, const float y, const float z,
-				   const float s, unsigned int col)
+void duAppendCross(struct duDebugDraw* dd, const duReal x, const duReal y, const duReal z,
+				   const duReal s, unsigned int col)
 {
 	if (!dd) return;
 	dd->vertex(x-s,y,z, col);
@@ -529,9 +574,9 @@ duDisplayList::duDisplayList(int cap) :
 	m_color(0),
 	m_size(0),
 	m_cap(0),
+	m_depthMask(true),
 	m_prim(DU_DRAW_LINES),
-	m_primSize(1.0f),
-	m_depthMask(true)
+	m_primSize(1.0f)
 {
 	if (cap < 8)
 		cap = 8;
@@ -540,22 +585,22 @@ duDisplayList::duDisplayList(int cap) :
 
 duDisplayList::~duDisplayList()
 {
-	delete [] m_pos;
-	delete [] m_color;
+	rcFree(m_pos); //@HG
+	rcFree(m_color); //@HG
 }
 
 void duDisplayList::resize(int cap)
 {
-	float* newPos = new float[cap*3];
+	duReal* newPos = (duReal*)rcAlloc(sizeof(duReal)*3*cap, RC_ALLOC_PERM); //@HG
 	if (m_size)
-		memcpy(newPos, m_pos, sizeof(float)*3*m_size);
-	delete [] m_pos;
+		memcpy(newPos, m_pos, sizeof(duReal)*3*m_size);
+	rcFree(m_pos); //@HG
 	m_pos = newPos;
 
-	unsigned int* newColor = new unsigned int[cap];
+	unsigned int* newColor = (unsigned int*)rcAlloc(sizeof(unsigned int)*cap, RC_ALLOC_PERM); //@HG
 	if (m_size)
 		memcpy(newColor, m_color, sizeof(unsigned int)*m_size);
-	delete [] m_color;
+	rcFree(m_color); //@HG
 	m_color = newColor;
 	
 	m_cap = cap;
@@ -578,11 +623,11 @@ void duDisplayList::begin(duDebugDrawPrimitives prim, float size)
 	m_primSize = size;
 }
 
-void duDisplayList::vertex(const float x, const float y, const float z, unsigned int color)
+void duDisplayList::vertex(const duReal x, const duReal y, const duReal z, unsigned int color)
 {
 	if (m_size+1 >= m_cap)
 		resize(m_cap*2);
-	float* p = &m_pos[m_size*3];
+	duReal* p = &m_pos[m_size*3];
 	p[0] = x;
 	p[1] = y;
 	p[2] = z;
@@ -590,7 +635,7 @@ void duDisplayList::vertex(const float x, const float y, const float z, unsigned
 	m_size++;
 }
 
-void duDisplayList::vertex(const float* pos, unsigned int color)
+void duDisplayList::vertex(const duReal* pos, unsigned int color)
 {
 	vertex(pos[0],pos[1],pos[2],color);
 }

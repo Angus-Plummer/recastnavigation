@@ -1,4 +1,3 @@
-//
 // Copyright (c) 2009-2010 Mikko Mononen memon@inside.org
 //
 // This software is provided 'as-is', without any express or implied
@@ -19,8 +18,12 @@
 #ifndef RECAST_DEBUGDRAW_H
 #define RECAST_DEBUGDRAW_H
 
-void duDebugDrawTriMesh(struct duDebugDraw* dd, const float* verts, int nverts, const int* tris, const float* normals, int ntris, const unsigned char* flags, const float texScale);
-void duDebugDrawTriMeshSlope(struct duDebugDraw* dd, const float* verts, int nverts, const int* tris, const float* normals, int ntris, const float walkableSlopeAngle, const float texScale);
+#include "DebugDrawLargeWorldCoordinates.h"
+
+struct duDebugDraw;
+
+void duDebugDrawTriMesh(struct duDebugDraw* dd, const duReal* verts, int nverts, const int* tris, const duReal* normals, int ntris, const unsigned char* flags, const duReal texScale);
+void duDebugDrawTriMeshSlope(struct duDebugDraw* dd, const duReal* verts, int nverts, const int* tris, const duReal* normals, int ntris, const duReal walkableSlopeAngle, const duReal texScale);
 
 void duDebugDrawHeightfieldSolid(struct duDebugDraw* dd, const struct rcHeightfield& hf);
 void duDebugDrawHeightfieldWalkable(struct duDebugDraw* dd, const struct rcHeightfield& hf);
@@ -32,6 +35,9 @@ void duDebugDrawCompactHeightfieldDistance(struct duDebugDraw* dd, const struct 
 void duDebugDrawHeightfieldLayer(duDebugDraw* dd, const struct rcHeightfieldLayer& layer, const int idx);
 void duDebugDrawHeightfieldLayers(duDebugDraw* dd, const struct rcHeightfieldLayerSet& lset);
 void duDebugDrawHeightfieldLayersRegions(duDebugDraw* dd, const struct rcHeightfieldLayerSet& lset);
+
+void duDebugDrawLayerContours(duDebugDraw* dd, const struct rcLayerContourSet& lcset);
+void duDebugDrawLayerPolyMesh(duDebugDraw* dd, const struct rcLayerPolyMesh& lmesh);
 
 void duDebugDrawRegionConnections(struct duDebugDraw* dd, const struct rcContourSet& cset, const float alpha = 1.0f);
 void duDebugDrawRawContours(struct duDebugDraw* dd, const struct rcContourSet& cset, const float alpha = 1.0f);

@@ -1,4 +1,3 @@
-//
 // Copyright (c) 2009-2010 Mikko Mononen memon@inside.org
 //
 // This software is provided 'as-is', without any express or implied
@@ -19,9 +18,11 @@
 #ifndef RECAST_DUMP_H
 #define RECAST_DUMP_H
 
+class rcContext;
+
 struct duFileIO
 {
-	virtual ~duFileIO();
+	virtual ~duFileIO() = 0;
 	virtual bool isWriting() const = 0;
 	virtual bool isReading() const = 0;
 	virtual bool write(const void* ptr, const size_t size) = 0;
@@ -38,5 +39,6 @@ bool duDumpCompactHeightfield(struct rcCompactHeightfield& chf, duFileIO* io);
 bool duReadCompactHeightfield(struct rcCompactHeightfield& chf, duFileIO* io);
 
 void duLogBuildTimes(rcContext& ctx, const int totalTileUsec);
+
 
 #endif // RECAST_DUMP_H

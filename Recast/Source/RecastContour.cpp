@@ -185,12 +185,12 @@ static void walkContour(int x, int y, int i,
 			
 			// @HG - disjoint neighbours
             if ( hasDisjointNeighbour )
-                r |= RC_ADJ_DISJOINT_VERTEX;
+                r |= RC_CONTOUR_FLAG_ADJ_DISJOINT_VERTEX;
 			else if (isBorderVertex)
-				r |= RC_BORDER_VERTEX;
+				r |= RC_CONTOUR_FLAG_BORDER_VERTEX;
 
 			if (isAreaBorder)
-				r |= RC_AREA_BORDER;
+				r |= RC_CONTOUR_FLAG_AREA_BORDER;
 			points.push(px);
 			points.push(py);
 			points.push(pz);
@@ -228,16 +228,16 @@ static void walkContour(int x, int y, int i,
 	}
 }
 
-static float distancePtSeg(const int x, const int z,
+static rcReal distancePtSeg(const int x, const int z,
 						   const int px, const int pz,
 						   const int qx, const int qz)
 {
-	float pqx = (float)(qx - px);
-	float pqz = (float)(qz - pz);
-	float dx = (float)(x - px);
-	float dz = (float)(z - pz);
-	float d = pqx*pqx + pqz*pqz;
-	float t = pqx*dx + pqz*dz;
+	rcReal pqx = (rcReal)(qx - px);
+	rcReal pqz = (rcReal)(qz - pz);
+	rcReal dx = (rcReal)(x - px);
+	rcReal dz = (rcReal)(z - pz);
+	rcReal d = pqx*pqx + pqz*pqz;
+	rcReal t = pqx*dx + pqz*dz;
 	if (d > 0)
 		t /= d;
 	if (t < 0)
@@ -252,7 +252,7 @@ static float distancePtSeg(const int x, const int z,
 }
 
 static void simplifyContour(rcIntArray& points, rcIntArray& simplified,
-							const float maxError, const int maxEdgeLen, const int buildFlags)
+							const rcReal maxError, const int maxEdgeLen, const int buildFlags)
 {
 	// Add initial points.
 	bool hasConnections = false;
@@ -261,7 +261,7 @@ static void simplifyContour(rcIntArray& points, rcIntArray& simplified,
         const int reg = points[i+3];
 
 		if ((reg & (RC_CONTOUR_REG_MASK | RC_CONTOUR_AREA_MASK)) != 0 // @HG - contour area mask added
-            || (reg & RC_ADJ_DISJOINT_VERTEX) != 0 ) //@HG - check for disjoint contour vert
+            || (reg & RC_CONTOUR_FLAG_ADJ_DISJOINT_VERTEX) != 0 ) //@HG - check for disjoint contour vert
 		{
 			hasConnections = true;
 			break;
@@ -278,13 +278,13 @@ static void simplifyContour(rcIntArray& points, rcIntArray& simplified,
             int& ireg = points[i*4+3];
             const int iireg = points[ii*4+3];
             const bool differentRegs = ( ireg & ( RC_CONTOUR_REG_MASK | RC_CONTOUR_AREA_MASK ) ) != ( iireg & ( RC_CONTOUR_REG_MASK | RC_CONTOUR_AREA_MASK ) ); //@HG - check area as well as region change
-			const bool areaBorders = (ireg & RC_AREA_BORDER) != (iireg & RC_AREA_BORDER);
-			const bool hasDisjointNeighbour = (ireg & RC_ADJ_DISJOINT_VERTEX); //@HG - Check for disjoint neighbour
+			const bool areaBorders = (ireg & RC_CONTOUR_FLAG_AREA_BORDER) != (iireg & RC_CONTOUR_FLAG_AREA_BORDER);
+			const bool hasDisjointNeighbour = (ireg & RC_CONTOUR_FLAG_ADJ_DISJOINT_VERTEX); //@HG - Check for disjoint neighbour
 			if (differentRegs || areaBorders || hasDisjointNeighbour )
 			{
 				// @HG - remove border vert flag for any of these mandatory verts
 				// so we cant remove it later
-				ireg = ireg & ~RC_BORDER_VERTEX;
+				ireg = ireg & ~RC_CONTOUR_FLAG_BORDER_VERTEX;
 				simplified.push(points[i*4+0]);
 				simplified.push(points[i*4+1]);
 				simplified.push(points[i*4+2]);
@@ -353,7 +353,7 @@ static void simplifyContour(rcIntArray& points, rcIntArray& simplified,
 		int bi = simplified[ii*4+3];
 
 		// Find maximum deviation from the segment.
-		float maxd = 0;
+		rcReal maxd = 0;
 		int maxi = -1;
 		int ci, cinc, endi;
 
@@ -377,11 +377,11 @@ static void simplifyContour(rcIntArray& points, rcIntArray& simplified,
 		
 		// Tessellate only outer edges or edges between areas.
 		if ((points[ci*4+3] & RC_CONTOUR_REG_MASK) == 0 ||
-			(points[ci*4+3] & RC_AREA_BORDER))
+			(points[ci*4+3] & RC_CONTOUR_FLAG_AREA_BORDER))
 		{
 			while (ci != endi)
 			{
-				float d = distancePtSeg(points[ci*4+0], points[ci*4+2], ax, az, bx, bz);
+				rcReal d = distancePtSeg(points[ci*4+0], points[ci*4+2], ax, az, bx, bz);
 				if (d > maxd)
 				{
 					maxd = d;
@@ -443,7 +443,7 @@ static void simplifyContour(rcIntArray& points, rcIntArray& simplified,
 			if ((buildFlags & RC_CONTOUR_TESS_WALL_EDGES) && (points[ci*4+3] & RC_CONTOUR_REG_MASK) == 0)
 				tess = true;
 			// Edges between areas.
-			if ((buildFlags & RC_CONTOUR_TESS_AREA_EDGES) && (points[ci*4+3] & RC_AREA_BORDER))
+			if ((buildFlags & RC_CONTOUR_TESS_AREA_EDGES) && (points[ci*4+3] & RC_CONTOUR_FLAG_AREA_BORDER))
 				tess = true;
 			
 			if (tess)
@@ -499,7 +499,7 @@ static void simplifyContour(rcIntArray& points, rcIntArray& simplified,
 		// and the neighbour region is take from the next raw point.
 		const int ai = (simplified[i*4+3]+1) % pn;
 		const int bi = simplified[i*4+3];
-		simplified[i*4+3] = (points[ai*4+3] & (RC_CONTOUR_REG_MASK|RC_CONTOUR_AREA_MASK|RC_AREA_BORDER)) | (points[bi*4+3] & RC_BORDER_VERTEX); //@HG - contour area mask
+		simplified[i*4+3] = (points[ai*4+3] & (RC_CONTOUR_REG_MASK|RC_CONTOUR_AREA_MASK|RC_CONTOUR_FLAG_AREA_BORDER)) | (points[bi*4+3] & RC_CONTOUR_FLAG_BORDER_VERTEX); //@HG - contour area mask
 	}
 	
 }
@@ -577,6 +577,44 @@ static void removeDegenerateSegments(rcIntArray& simplified)
 	}
 }
 
+inline bool ileft(const int* a, const int* b, const int* c)
+{
+	return (b[0] - a[0]) * (c[2] - a[2]) - (c[0] - a[0]) * (b[2] - a[2]) <= 0;
+}
+
+static void getClosestIndices(const int* vertsa, const int nvertsa,
+							  const int* vertsb, const int nvertsb,
+							  int& ia, int& ib)
+{
+	int closestDist = 0xfffffff;
+	ia = -1, ib = -1;
+	for (int i = 0; i < nvertsa; ++i)
+	{
+		const int in = (i+1) % nvertsa;
+		const int ip = (i+nvertsa-1) % nvertsa;
+		const int* va = &vertsa[i*4];
+		const int* van = &vertsa[in*4];
+		const int* vap = &vertsa[ip*4];
+		
+		for (int j = 0; j < nvertsb; ++j)
+		{
+			const int* vb = &vertsb[j*4];
+			// vb must be "infront" of va.
+			if (ileft(vap,va,vb) && ileft(va,van,vb))
+			{
+				const int dx = vb[0] - va[0];
+				const int dz = vb[2] - va[2];
+				const int d = dx*dx + dz*dz;
+				if (d < closestDist)
+				{
+					ia = i;
+					ib = j;
+					closestDist = d;
+				}
+			}
+		}
+	}
+}
 
 static bool mergeContours(rcContour& ca, rcContour& cb, int ia, int ib)
 {
@@ -706,7 +744,7 @@ static void mergeRegionHoles(rcContext* ctx, rcContourRegion& region)
 	for (int i = 0; i < region.nholes; i++)
 		maxVerts += region.holes[i].contour->nverts;
 	
-	rcScopedDelete<rcPotentialDiagonal> diags((rcPotentialDiagonal*)rcAlloc(sizeof(rcPotentialDiagonal)*maxVerts, RC_ALLOC_TEMP));
+    rcScopedDelete<rcPotentialDiagonal> diags( maxVerts );
 	if (!diags)
 	{
 		ctx->log(RC_LOG_WARNING, "mergeRegionHoles: Failed to allocated diags %d.", maxVerts);
@@ -798,7 +836,7 @@ static void mergeRegionHoles(rcContext* ctx, rcContourRegion& region)
 ///
 /// @see rcAllocContourSet, rcCompactHeightfield, rcContourSet, rcConfig
 bool rcBuildContours(rcContext* ctx, rcCompactHeightfield& chf,
-					 const float maxError, const int maxEdgeLen,
+					 const rcReal maxError, const int maxEdgeLen,
 					 rcContourSet& cset, const int buildFlags)
 {
 	rcAssert(ctx);
@@ -814,7 +852,7 @@ bool rcBuildContours(rcContext* ctx, rcCompactHeightfield& chf,
 	if (borderSize > 0)
 	{
 		// If the heightfield was build with bordersize, remove the offset.
-		const float pad = borderSize*chf.cs;
+		const rcReal pad = borderSize*chf.cs;
 		cset.bmin[0] += pad;
 		cset.bmin[2] += pad;
 		cset.bmax[0] -= pad;
@@ -833,7 +871,7 @@ bool rcBuildContours(rcContext* ctx, rcCompactHeightfield& chf,
 		return false;
 	cset.nconts = 0;
 	
-	rcScopedDelete<unsigned char> flags((unsigned char*)rcAlloc(sizeof(unsigned char)*chf.spanCount, RC_ALLOC_TEMP));
+	rcScopedDelete<unsigned char> flags(chf.spanCount);
 	if (!flags)
 	{
 		ctx->log(RC_LOG_ERROR, "rcBuildContours: Out of memory 'flags' (%d).", chf.spanCount);
@@ -981,11 +1019,60 @@ bool rcBuildContours(rcContext* ctx, rcCompactHeightfield& chf,
 		}
 	}
 	
-	// Merge holes if needed.
+#if 0 // new merging
+	// Check and merge droppings.
+	// Sometimes the previous algorithms can fail and create several contours
+	// per area. This pass will try to merge the holes into the main region.
+	for (int i = 0; i < cset.nconts; ++i)
+	{
+		rcContour& cont = cset.conts[i];
+		// Check if the contour is would backwards.
+		if (calcAreaOfPolygon2D(cont.verts, cont.nverts) <= 0)
+		{
+			// Find another contour which has the same region ID.
+			int mergeIdx = -1;
+			for (int j = 0; j < cset.nconts; ++j)
+			{
+				if (i == j) continue;
+				if (cset.conts[j].nverts && cset.conts[j].reg == cont.reg)
+				{
+					// Make sure the polygon is correctly oriented.
+					if (calcAreaOfPolygon2D(cset.conts[j].verts, cset.conts[j].nverts))
+					{
+						mergeIdx = j;
+						break;
+					}
+				}
+			}
+			if (mergeIdx == -1)
+			{
+				ctx->log(RC_LOG_WARNING, "rcBuildContours: Could not find merge target for bad contour %d.", i);
+			}
+			else
+			{
+				rcContour& mcont = cset.conts[mergeIdx];
+				// Merge by closest points.
+				int ia = 0, ib = 0;
+				getClosestIndices(mcont.verts, mcont.nverts, cont.verts, cont.nverts, ia, ib);
+				if (ia == -1 || ib == -1)
+				{
+					ctx->log(RC_LOG_WARNING, "rcBuildContours: Failed to find merge points for %d and %d.", i, mergeIdx);
+					continue;
+				}
+				if (!mergeContours(mcont, cont, ia, ib))
+				{
+					ctx->log(RC_LOG_WARNING, "rcBuildContours: Failed to merge contours %d and %d.", i, mergeIdx);
+					continue;
+				}
+			}
+		}
+	}	
+#else
+// Merge holes if needed.
 	if (cset.nconts > 0)
 	{
 		// Calculate winding of all polygons.
-		rcScopedDelete<signed char> winding((signed char*)rcAlloc(sizeof(signed char)*cset.nconts, RC_ALLOC_TEMP));
+		rcScopedDelete<signed char> winding(cset.nconts);
 		if (!winding)
 		{
 			ctx->log(RC_LOG_ERROR, "rcBuildContours: Out of memory 'hole' (%d).", cset.nconts);
@@ -1006,7 +1093,7 @@ bool rcBuildContours(rcContext* ctx, rcCompactHeightfield& chf,
 			// Collect outline contour and holes contours per region.
 			// We assume that there is one outline and multiple holes.
 			const int nregions = chf.maxRegions+1;
-			rcScopedDelete<rcContourRegion> regions((rcContourRegion*)rcAlloc(sizeof(rcContourRegion)*nregions, RC_ALLOC_TEMP));
+			rcScopedDelete<rcContourRegion> regions(nregions);
 			if (!regions)
 			{
 				ctx->log(RC_LOG_ERROR, "rcBuildContours: Out of memory 'regions' (%d).", nregions);
@@ -1014,7 +1101,7 @@ bool rcBuildContours(rcContext* ctx, rcCompactHeightfield& chf,
 			}
 			memset(regions, 0, sizeof(rcContourRegion)*nregions);
 			
-			rcScopedDelete<rcContourHole> holes((rcContourHole*)rcAlloc(sizeof(rcContourHole)*cset.nconts, RC_ALLOC_TEMP));
+			rcScopedDelete<rcContourHole> holes(cset.nconts);
 			if (!holes)
 			{
 				ctx->log(RC_LOG_ERROR, "rcBuildContours: Out of memory 'holes' (%d).", cset.nconts);
@@ -1074,8 +1161,111 @@ bool rcBuildContours(rcContext* ctx, rcCompactHeightfield& chf,
 				}
 			}
 		}
-		
-	}
-	
+    }
+#endif
+
 	return true;
 }
+
+static void getContourCenter(const rcContour* cont, const rcReal* orig, rcReal cs, rcReal ch, rcReal* center)
+{
+	center[0] = 0;
+	center[1] = 0;
+	center[2] = 0;
+	if (!cont->nverts)
+		return;
+	for (int i = 0; i < cont->nverts; ++i)
+	{
+		const int* v = &cont->verts[i*4];
+		center[0] += (rcReal)v[0];
+		center[1] += (rcReal)v[1];
+		center[2] += (rcReal)v[2];
+	}
+	const rcReal s = rcReal(1.) / cont->nverts;
+	center[0] *= s * cs;
+	center[1] *= s * ch;
+	center[2] *= s * cs;
+	center[0] += orig[0];
+	center[1] += orig[1] + 4*ch;
+	center[2] += orig[2];
+}
+
+static int findContourFromSet(const rcContourSet& cset, unsigned short reg)
+{
+	for (int i = 0; i < cset.nconts; ++i)
+	{
+		if (cset.conts[i].reg == reg)
+			return i;
+	}
+	return -1;
+}
+
+//@HG BEGIN
+#if WITH_NAVMESH_CLUSTER_LINKS
+bool rcBuildClusters(rcContext* ctx, rcContourSet& cset, rcClusterSet& clusters)
+{
+	ctx->startTimer(RC_TIMER_BUILD_CLUSTERS);
+
+	clusters.nclusters = cset.nconts + 1;
+
+	clusters.center = (rcReal*)rcAlloc(sizeof(rcReal)*3*clusters.nclusters, RC_ALLOC_PERM);
+	clusters.nlinks = (unsigned short*)rcAlloc(sizeof(unsigned short)*clusters.nclusters, RC_ALLOC_PERM);
+	if (!clusters.center || !clusters.nlinks)
+		return false;
+
+	memset(clusters.center, 0, sizeof(rcReal)*3*clusters.nclusters);
+	memset(clusters.nlinks, 0, sizeof(unsigned short)*clusters.nclusters);
+
+	rcScopedDelete<unsigned short> clusterLinks(clusters.nclusters*clusters.nclusters);
+	memset(clusterLinks, 0xffff, sizeof(unsigned short)*clusters.nclusters*clusters.nclusters);
+	unsigned short nlinks = 0;
+
+	for (int i = 1; i < clusters.nclusters; i++)
+	{
+		int ic = findContourFromSet(cset, (unsigned short)i);
+		if (ic < 0) 
+			continue;
+
+		rcContour& cont = cset.conts[ic];
+		unsigned short& nnei = clusters.nlinks[i];
+
+		getContourCenter(&cont, cset.bmin, cset.cs, cset.ch, &clusters.center[i*3]);
+		unsigned short firstLink = nlinks;
+
+		for (int j = 0; j < cont.nverts; j++)
+		{
+			unsigned short neiReg = (unsigned short)cont.verts[j*4+3];
+			const int neiCont = findContourFromSet(cset, neiReg);
+			if (neiCont < 0) continue;
+
+			const unsigned short neiCluster = neiReg;
+			bool bFound = false;
+			for (unsigned short k = firstLink; k < nlinks; k++)
+			{
+				if (clusterLinks[k] == neiCluster)
+				{
+					bFound = true;
+					break;
+				}
+			}
+
+			if (!bFound)
+			{
+				clusterLinks[nlinks] = neiCluster;
+				nlinks++;
+				nnei++;
+			}
+		}
+	}
+
+	if (nlinks)
+	{
+		clusters.links = (unsigned short*)rcAlloc(sizeof(unsigned short)*nlinks, RC_ALLOC_PERM);
+		memcpy(clusters.links, clusterLinks, sizeof(unsigned short)*nlinks);
+	}
+
+	ctx->stopTimer(RC_TIMER_BUILD_CLUSTERS);
+	return true;
+}
+#endif // WITH_NAVMESH_CLUSTER_LINKS
+//@HG END

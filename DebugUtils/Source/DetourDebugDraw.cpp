@@ -22,6 +22,7 @@
 #include "DetourCommon.h"
 #include "DetourNode.h"
 
+#if D_ENABLE_DETOUR_DEBUG 
 
 static float distancePtLine2d(const float* pt, const float* p, const float* q)
 {
@@ -860,5 +861,4 @@ void duDebugDrawTileCachePolyMesh(duDebugDraw* dd, const struct dtTileCachePolyM
 	dd->end();
 }
 
-
-
+#endif

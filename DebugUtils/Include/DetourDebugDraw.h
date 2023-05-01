@@ -23,6 +23,10 @@
 #include "DetourNavMeshQuery.h"
 #include "DetourTileCacheBuilder.h"
 
+#define D_ENABLE_DETOUR_DEBUG 0 // disable detour debug drawing - still need to update detour to double precision
+
+#if D_ENABLE_DETOUR_DEBUG 
+
 enum DrawNavMeshFlags
 {
 	DU_DRAWNAVMESH_OFFMESHCONS = 0x01,
@@ -44,5 +48,5 @@ void duDebugDrawTileCacheContours(duDebugDraw* dd, const struct dtTileCacheConto
 								  const float* orig, const float cs, const float ch);
 void duDebugDrawTileCachePolyMesh(duDebugDraw* dd, const struct dtTileCachePolyMesh& lmesh,
 								  const float* orig, const float cs, const float ch);
-
+#endif
 #endif // DETOURDEBUGDRAW_H

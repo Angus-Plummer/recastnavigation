@@ -16,6 +16,7 @@
 // 3. This notice may not be removed or altered from any source distribution.
 //
 
+#define _USE_MATH_DEFINES
 #include <float.h>
 #include <math.h>
 #include <string.h>
@@ -38,52 +39,52 @@ struct rcHeightPatch
 };
 
 
-inline float vdot2(const float* a, const float* b)
+inline rcReal vdot2(const rcReal* a, const rcReal* b)
 {
 	return a[0]*b[0] + a[2]*b[2];
 }
 
-inline float vdistSq2(const float* p, const float* q)
+inline rcReal vdistSq2(const rcReal* p, const rcReal* q)
 {
-	const float dx = q[0] - p[0];
-	const float dy = q[2] - p[2];
+	const rcReal dx = q[0] - p[0];
+	const rcReal dy = q[2] - p[2];
 	return dx*dx + dy*dy;
 }
 
-inline float vdist2(const float* p, const float* q)
+inline rcReal vdist2(const rcReal* p, const rcReal* q)
 {
-	return sqrtf(vdistSq2(p,q));
+	return rcSqrt(vdistSq2(p,q));
 }
 
-inline float vcross2(const float* p1, const float* p2, const float* p3)
-{
-	const float u1 = p2[0] - p1[0];
-	const float v1 = p2[2] - p1[2];
-	const float u2 = p3[0] - p1[0];
-	const float v2 = p3[2] - p1[2];
+inline rcReal vcross2(const rcReal* p1, const rcReal* p2, const rcReal* p3)
+{ 
+	const rcReal u1 = p2[0] - p1[0];
+	const rcReal v1 = p2[2] - p1[2];
+	const rcReal u2 = p3[0] - p1[0];
+	const rcReal v2 = p3[2] - p1[2];
 	return u1 * v2 - v1 * u2;
 }
 
-static bool circumCircle(const float* p1, const float* p2, const float* p3,
-						 float* c, float& r)
+static bool circumCircle(const rcReal* p1, const rcReal* p2, const rcReal* p3,
+						 rcReal* c, rcReal& r)
 {
-	static const float EPS = 1e-6f;
+	static const rcReal EPS = 1e-6f;
 	// Calculate the circle relative to p1, to avoid some precision issues.
-	const float v1[3] = {0,0,0};
-	float v2[3], v3[3];
+	const rcReal v1[3] = {0,0,0};
+    rcReal v2[3], v3[3];
 	rcVsub(v2, p2,p1);
 	rcVsub(v3, p3,p1);
 	
-	const float cp = vcross2(v1, v2, v3);
-	if (fabsf(cp) > EPS)
+	const rcReal cp = vcross2(p1, p2, p3);
+	if (rcAbs(cp) > EPS)
 	{
-		const float v1Sq = vdot2(v1,v1);
-		const float v2Sq = vdot2(v2,v2);
-		const float v3Sq = vdot2(v3,v3);
-		c[0] = (v1Sq*(v2[2]-v3[2]) + v2Sq*(v3[2]-v1[2]) + v3Sq*(v1[2]-v2[2])) / (2*cp);
+		const rcReal p1Sq = vdot2(p1,p1);
+		const rcReal p2Sq = vdot2(p2,p2);
+		const rcReal p3Sq = vdot2(p3,p3);
+		c[0] = (p1Sq*(p2[2]-p3[2]) + p2Sq*(p3[2]-p1[2]) + p3Sq*(p1[2]-p2[2])) / (2*cp);
 		c[1] = 0;
-		c[2] = (v1Sq*(v3[0]-v2[0]) + v2Sq*(v1[0]-v3[0]) + v3Sq*(v2[0]-v1[0])) / (2*cp);
-		r = vdist2(c, v1);
+		c[2] = (p1Sq*(p3[0]-p2[0]) + p2Sq*(p1[0]-p3[0]) + p3Sq*(p2[0]-p1[0])) / (2*cp);
+		r = vdist2(c, p1);
 		rcVadd(c, c, p1);
 		return true;
 	}
@@ -93,44 +94,44 @@ static bool circumCircle(const float* p1, const float* p2, const float* p3,
 	return false;
 }
 
-static float distPtTri(const float* p, const float* a, const float* b, const float* c)
+static rcReal distPtTri(const rcReal* p, const rcReal* a, const rcReal* b, const rcReal* c)
 {
-	float v0[3], v1[3], v2[3];
+	rcReal v0[3], v1[3], v2[3];
 	rcVsub(v0, c,a);
 	rcVsub(v1, b,a);
 	rcVsub(v2, p,a);
-	
-	const float dot00 = vdot2(v0, v0);
-	const float dot01 = vdot2(v0, v1);
-	const float dot02 = vdot2(v0, v2);
-	const float dot11 = vdot2(v1, v1);
-	const float dot12 = vdot2(v1, v2);
+
+	const rcReal dot00 = vdot2(v0, v0);
+	const rcReal dot01 = vdot2(v0, v1);
+	const rcReal dot02 = vdot2(v0, v2);
+	const rcReal dot11 = vdot2(v1, v1);
+	const rcReal dot12 = vdot2(v1, v2);
 	
 	// Compute barycentric coordinates
-	const float invDenom = 1.0f / (dot00 * dot11 - dot01 * dot01);
-	const float u = (dot11 * dot02 - dot01 * dot12) * invDenom;
-	float v = (dot00 * dot12 - dot01 * dot02) * invDenom;
+	const rcReal invDenom = 1.0f / (dot00 * dot11 - dot01 * dot01);
+	const rcReal u = (dot11 * dot02 - dot01 * dot12) * invDenom;
+	rcReal v = (dot00 * dot12 - dot01 * dot02) * invDenom;
 	
 	// If point lies inside the triangle, return interpolated y-coord.
-	static const float EPS = 1e-4f;
+	static const rcReal EPS = 1e-4f;
 	if (u >= -EPS && v >= -EPS && (u+v) <= 1+EPS)
 	{
-		const float y = a[1] + v0[1]*u + v1[1]*v;
-		return fabsf(y-p[1]);
+		const rcReal y = a[1] + v0[1]*u + v1[1]*v;
+		return rcAbs(y-p[1]);
 	}
-	return FLT_MAX;
+	return RC_REAL_MAX;
 }
 
-static float distancePtSeg(const float* pt, const float* p, const float* q)
+static rcReal distancePtSeg(const rcReal* pt, const rcReal* p, const rcReal* q)
 {
-	float pqx = q[0] - p[0];
-	float pqy = q[1] - p[1];
-	float pqz = q[2] - p[2];
-	float dx = pt[0] - p[0];
-	float dy = pt[1] - p[1];
-	float dz = pt[2] - p[2];
-	float d = pqx*pqx + pqy*pqy + pqz*pqz;
-	float t = pqx*dx + pqy*dy + pqz*dz;
+	rcReal pqx = q[0] - p[0];
+	rcReal pqy = q[1] - p[1];
+	rcReal pqz = q[2] - p[2];
+	rcReal dx = pt[0] - p[0];
+	rcReal dy = pt[1] - p[1];
+	rcReal dz = pt[2] - p[2];
+	rcReal d = pqx*pqx + pqy*pqy + pqz*pqz;
+	rcReal t = pqx*dx + pqy*dy + pqz*dz;
 	if (d > 0)
 		t /= d;
 	if (t < 0)
@@ -145,14 +146,14 @@ static float distancePtSeg(const float* pt, const float* p, const float* q)
 	return dx*dx + dy*dy + dz*dz;
 }
 
-static float distancePtSeg2d(const float* pt, const float* p, const float* q)
+static rcReal distancePtSeg2d(const rcReal* pt, const rcReal* p, const rcReal* q)
 {
-	float pqx = q[0] - p[0];
-	float pqz = q[2] - p[2];
-	float dx = pt[0] - p[0];
-	float dz = pt[2] - p[2];
-	float d = pqx*pqx + pqz*pqz;
-	float t = pqx*dx + pqz*dz;
+	rcReal pqx = q[0] - p[0];
+	rcReal pqz = q[2] - p[2];
+	rcReal dx = pt[0] - p[0];
+	rcReal dz = pt[2] - p[2];
+	rcReal d = pqx*pqx + pqz*pqz;
+	rcReal t = pqx*dx + pqz*dz;
 	if (d > 0)
 		t /= d;
 	if (t < 0)
@@ -166,31 +167,31 @@ static float distancePtSeg2d(const float* pt, const float* p, const float* q)
 	return dx*dx + dz*dz;
 }
 
-static float distToTriMesh(const float* p, const float* verts, const int /*nverts*/, const int* tris, const int ntris)
+static rcReal distToTriMesh(const rcReal* p, const rcReal* verts, const int /*nverts*/, const int* tris, const int ntris)
 {
-	float dmin = FLT_MAX;
+	rcReal dmin = RC_REAL_MAX;
 	for (int i = 0; i < ntris; ++i)
 	{
-		const float* va = &verts[tris[i*4+0]*3];
-		const float* vb = &verts[tris[i*4+1]*3];
-		const float* vc = &verts[tris[i*4+2]*3];
-		float d = distPtTri(p, va,vb,vc);
+		const rcReal* va = &verts[tris[i*4+0]*3];
+		const rcReal* vb = &verts[tris[i*4+1]*3];
+		const rcReal* vc = &verts[tris[i*4+2]*3];
+		rcReal d = distPtTri(p, va,vb,vc);
 		if (d < dmin)
 			dmin = d;
 	}
-	if (dmin == FLT_MAX) return -1;
+	if (dmin == RC_REAL_MAX) return -1;
 	return dmin;
 }
 
-static float distToPoly(int nvert, const float* verts, const float* p)
+static rcReal distToPoly(int nvert, const rcReal* verts, const rcReal* p)
 {
-	
-	float dmin = FLT_MAX;
-	int i, j, c = 0;
+	rcReal dmin = RC_REAL_MAX;
+    bool c = false;
+	int i, j;
 	for (i = 0, j = nvert-1; i < nvert; j = i++)
 	{
-		const float* vi = &verts[i*3];
-		const float* vj = &verts[j*3];
+		const rcReal* vi = &verts[i*3];
+		const rcReal* vj = &verts[j*3];
 		if (((vi[2] > p[2]) != (vj[2] > p[2])) &&
 			(p[0] < (vj[0]-vi[0]) * (p[2]-vi[2]) / (vj[2]-vi[2]) + vi[0]) )
 			c = !c;
@@ -200,17 +201,22 @@ static float distToPoly(int nvert, const float* verts, const float* p)
 }
 
 
-static unsigned short getHeight(const float fx, const float fy, const float fz,
-								const float /*cs*/, const float ics, const float ch,
+static unsigned short getHeight(const rcReal fx, const rcReal fy, const rcReal fz,
+								const rcReal /*cs*/, const rcReal ics, const rcReal ch,
 								const int radius, const rcHeightPatch& hp)
 {
-	int ix = (int)floorf(fx*ics + 0.01f);
-	int iz = (int)floorf(fz*ics + 0.01f);
-	ix = rcClamp(ix-hp.xmin, 0, hp.width - 1);
-	iz = rcClamp(iz-hp.ymin, 0, hp.height - 1);
+	int ix = (int)rcFloor(fx*ics + 0.01f);
+	int iz = (int)rcFloor(fz*ics + 0.01f);
+
+	ix = rcClamp(ix-hp.xmin, 0, hp.width-1);
+	iz = rcClamp(iz-hp.ymin, 0, hp.height-1);
+
 	unsigned short h = hp.data[ix+iz*hp.width];
 	if (h == RC_UNSET_HEIGHT)
 	{
+		//@HG setting fallback value in case proper height is not found
+		h = (unsigned short)rcFloor(fy/ch);
+
 		// Special case when data might be bad.
 		// Walk adjacent cells in a spiral up to 'radius', and look
 		// for a pixel which has a valid height.
@@ -221,7 +227,7 @@ static unsigned short getHeight(const float fx, const float fy, const float fz,
 		int nextRingIterStart = 8;
 		int nextRingIters = 16;
 
-		float dmin = FLT_MAX;
+		rcReal dmin = RC_REAL_MAX;
 		for (int i = 0; i < maxIter; i++)
 		{
 			const int nx = ix + x;
@@ -232,7 +238,7 @@ static unsigned short getHeight(const float fx, const float fy, const float fz,
 				const unsigned short nh = hp.data[nx + nz*hp.width];
 				if (nh != RC_UNSET_HEIGHT)
 				{
-					const float d = fabsf(nh*ch - fy);
+					const rcReal d = rcAbs(nh*ch - fy);
 					if (d < dmin)
 					{
 						h = nh;
@@ -306,7 +312,7 @@ static int addEdge(rcContext* ctx, int* edges, int& nedges, const int maxEdges, 
 		return EV_UNDEF;
 	}
 	
-	// Add edge if not already in the triangulation.
+	// Add edge if not already in the triangulation. 
 	int e = findEdge(edges, nedges, s, t);
 	if (e == EV_UNDEF)
 	{
@@ -329,23 +335,23 @@ static void updateLeftFace(int* e, int s, int t, int f)
 		e[2] = f;
 	else if (e[1] == s && e[0] == t && e[3] == EV_UNDEF)
 		e[3] = f;
-}
+}	
 
-static int overlapSegSeg2d(const float* a, const float* b, const float* c, const float* d)
+static int overlapSegSeg2d(const rcReal* a, const rcReal* b, const rcReal* c, const rcReal* d)
 {
-	const float a1 = vcross2(a, b, d);
-	const float a2 = vcross2(a, b, c);
+	const rcReal a1 = vcross2(a, b, d);
+	const rcReal a2 = vcross2(a, b, c);
 	if (a1*a2 < 0.0f)
 	{
-		float a3 = vcross2(c, d, a);
-		float a4 = a3 + a2 - a1;
+		rcReal a3 = vcross2(c, d, a);
+		rcReal a4 = a3 + a2 - a1;
 		if (a3 * a4 < 0.0f)
 			return 1;
-	}
+	}	
 	return 0;
 }
 
-static bool overlapEdges(const float* pts, const int* edges, int nedges, int s1, int t1)
+static bool overlapEdges(const rcReal* pts, const int* edges, int nedges, int s1, int t1)
 {
 	for (int i = 0; i < nedges; ++i)
 	{
@@ -360,10 +366,10 @@ static bool overlapEdges(const float* pts, const int* edges, int nedges, int s1,
 	return false;
 }
 
-static void completeFacet(rcContext* ctx, const float* pts, int npts, int* edges, int& nedges, const int maxEdges, int& nfaces, int e)
+static void completeFacet(rcContext* ctx, const rcReal* pts, int npts, int* edges, int& nedges, const int maxEdges, int& nfaces, int e)
 {
-	static const float EPS = 1e-5f;
-	
+	static const rcReal EPS = 1e-5f;
+
 	int* edge = &edges[e*4];
 	
 	// Cache s and t.
@@ -386,8 +392,8 @@ static void completeFacet(rcContext* ctx, const float* pts, int npts, int* edges
     
 	// Find best point on left of edge.
 	int pt = npts;
-	float c[3] = {0,0,0};
-	float r = -1;
+	rcReal c[3] = {0,0,0};
+	rcReal r = -1;
 	for (int u = 0; u < npts; ++u)
 	{
 		if (u == s || u == t) continue;
@@ -400,8 +406,8 @@ static void completeFacet(rcContext* ctx, const float* pts, int npts, int* edges
 				circumCircle(&pts[s*3], &pts[t*3], &pts[u*3], c, r);
 				continue;
 			}
-			const float d = vdist2(c, &pts[u*3]);
-			const float tol = 0.001f;
+			const rcReal d = vdist2(c, &pts[u*3]);
+			const rcReal tol = 0.001f;
 			if (d > r*(1+tol))
 			{
 				// Outside current circumcircle, skip.
@@ -415,7 +421,6 @@ static void completeFacet(rcContext* ctx, const float* pts, int npts, int* edges
 			}
 			else
 			{
-				// @HG - Saw a bug report suggesting this should be before this if section. Consider trying?
 				// Inside epsilon circum circle, do extra tests to make sure the edge is valid.
 				// s-u and t-u cannot overlap with s-pt nor t-pt if they exists.
 				if (overlapEdges(pts, edges, nedges, s,u))
@@ -457,7 +462,7 @@ static void completeFacet(rcContext* ctx, const float* pts, int npts, int* edges
 	}
 }
 
-static void delaunayHull(rcContext* ctx, const int npts, const float* pts,
+static void delaunayHull(rcContext* ctx, const int npts, const rcReal* pts,
 						 const int nhull, const int* hull,
 						 rcIntArray& tris, rcIntArray& edges)
 {
@@ -478,7 +483,7 @@ static void delaunayHull(rcContext* ctx, const int npts, const float* pts,
 			completeFacet(ctx, pts, npts, &edges[0], nedges, maxEdges, nfaces, currentEdge);
 		currentEdge++;
 	}
-	
+
 	// Create tris
 	tris.resize(nfaces*4);
 	for (int i = 0; i < nfaces*4; ++i)
@@ -534,19 +539,19 @@ static void delaunayHull(rcContext* ctx, const int npts, const float* pts,
 }
 
 // Calculate minimum extend of the polygon.
-static float polyMinExtent(const float* verts, const int nverts)
+static rcReal polyMinExtent(const rcReal* verts, const int nverts)
 {
-	float minDist = FLT_MAX;
+    rcReal minDist = FLT_MAX;
 	for (int i = 0; i < nverts; i++)
 	{
 		const int ni = (i+1) % nverts;
-		const float* p1 = &verts[i*3];
-		const float* p2 = &verts[ni*3];
-		float maxEdgeDist = 0;
+		const rcReal* p1 = &verts[i*3];
+		const rcReal* p2 = &verts[ni*3];
+        rcReal maxEdgeDist = 0;
 		for (int j = 0; j < nverts; j++)
 		{
 			if (j == i || j == ni) continue;
-			float d = distancePtSeg2d(&verts[j*3], p1,p2);
+            rcReal d = distancePtSeg2d(&verts[j*3], p1,p2);
 			maxEdgeDist = rcMax(maxEdgeDist, d);
 		}
 		minDist = rcMin(minDist, maxEdgeDist);
@@ -554,22 +559,22 @@ static float polyMinExtent(const float* verts, const int nverts)
 	return rcSqrt(minDist);
 }
 
-static void triangulateHull(const int /*nverts*/, const float* verts, const int nhull, const int* hull, const int nin, rcIntArray& tris)
+static void triangulateHull(const int /*nverts*/, const rcReal* verts, const int nhull, const int* hull, const int nin, rcIntArray& tris)
 {
 	int start = 0, left = 1, right = nhull-1;
 	
 	// Start from an ear with shortest perimeter.
 	// This tends to favor well formed triangles as starting point.
-	float dmin = FLT_MAX;
+    rcReal dmin = FLT_MAX;
 	for (int i = 0; i < nhull; i++)
 	{
 		if (hull[i] >= nin) continue; // Ears are triangles with original vertices as middle vertex while others are actually line segments on edges
 		int pi = prev(i, nhull);
 		int ni = next(i, nhull);
-		const float* pv = &verts[hull[pi]*3];
-		const float* cv = &verts[hull[i]*3];
-		const float* nv = &verts[hull[ni]*3];
-		const float d = vdist2(pv,cv) + vdist2(cv,nv) + vdist2(nv,pv);
+		const rcReal* pv = &verts[hull[pi]*3];
+		const rcReal* cv = &verts[hull[i]*3];
+		const rcReal* nv = &verts[hull[ni]*3];
+		const rcReal d = vdist2(pv,cv) + vdist2(cv,nv) + vdist2(nv,pv);
 		if (d < dmin)
 		{
 			start = i;
@@ -595,12 +600,12 @@ static void triangulateHull(const int /*nverts*/, const float* verts, const int 
 		int nleft = next(left, nhull);
 		int nright = prev(right, nhull);
 		
-		const float* cvleft = &verts[hull[left]*3];
-		const float* nvleft = &verts[hull[nleft]*3];
-		const float* cvright = &verts[hull[right]*3];
-		const float* nvright = &verts[hull[nright]*3];
-		const float dleft = vdist2(cvleft, nvleft) + vdist2(nvleft, cvright);
-		const float dright = vdist2(cvright, nvright) + vdist2(cvleft, nvright);
+		const rcReal* cvleft = &verts[hull[left]*3];
+		const rcReal* nvleft = &verts[hull[nleft]*3];
+		const rcReal* cvright = &verts[hull[right]*3];
+		const rcReal* nvright = &verts[hull[nright]*3];
+		const rcReal dleft = vdist2(cvleft, nvleft) + vdist2(nvleft, cvright);
+		const rcReal dright = vdist2(cvright, nvright) + vdist2(cvleft, nvright);
 		
 		if (dleft < dright)
 		{
@@ -622,42 +627,42 @@ static void triangulateHull(const int /*nverts*/, const float* verts, const int 
 }
 
 
-inline float getJitterX(const int i)
+inline rcReal getJitterX(const int i)
 {
-	return (((i * 0x8da6b343) & 0xffff) / 65535.0f * 2.0f) - 1.0f;
+	return (((i * 0x8da6b343) & 0xffff) / rcReal(65535.) * 2.0f) - 1.0f;
 }
 
-inline float getJitterY(const int i)
+inline rcReal getJitterY(const int i)
 {
-	return (((i * 0xd8163841) & 0xffff) / 65535.0f * 2.0f) - 1.0f;
+	return (((i * 0xd8163841) & 0xffff) / rcReal(65535.) * 2.0f) - 1.0f;
 }
 
-static bool buildPolyDetail(rcContext* ctx, const float* in, const int nin,
-							const float sampleDist, const float sampleMaxError,
-							const int heightSearchRadius, const rcCompactHeightfield& chf,
-							const rcHeightPatch& hp, float* verts, int& nverts,
+static bool buildPolyDetail(rcContext* ctx, const rcReal* in, const int nin,
+							const rcReal sampleDist, const rcReal sampleMaxError,
+							const int heightSearchRadius, const rcCompactHeightfield& chf, 
+							const rcHeightPatch& hp, rcReal* verts, int& nverts, 
 							rcIntArray& tris, rcIntArray& edges, rcIntArray& samples)
 {
 	static const int MAX_VERTS = 127;
 	static const int MAX_TRIS = 255;	// Max tris for delaunay is 2n-2-k (n=num verts, k=num hull verts).
 	static const int MAX_VERTS_PER_EDGE = 32;
-	float edge[(MAX_VERTS_PER_EDGE+1)*3];
+	rcReal edge[(MAX_VERTS_PER_EDGE+1)*3];
 	int hull[MAX_VERTS];
 	int nhull = 0;
-	
+
 	nverts = nin;
-	
+
 	for (int i = 0; i < nin; ++i)
 		rcVcopy(&verts[i*3], &in[i*3]);
 	
 	edges.clear();
 	tris.clear();
 	
-	const float cs = chf.cs;
-	const float ics = 1.0f/cs;
+	const rcReal cs = chf.cs;
+	const rcReal ics = 1.0f/cs;
 	
 	// Calculate minimum extents of the polygon based on input data.
-	float minExtent = polyMinExtent(verts, nverts);
+    rcReal minExtent = polyMinExtent(verts, nverts);
 	
 	// Tessellate outlines.
 	// This is done in separate pass in order to ensure
@@ -666,12 +671,12 @@ static bool buildPolyDetail(rcContext* ctx, const float* in, const int nin,
 	{
 		for (int i = 0, j = nin-1; i < nin; j=i++)
 		{
-			const float* vj = &in[j*3];
-			const float* vi = &in[i*3];
+			const rcReal* vj = &in[j*3];
+			const rcReal* vi = &in[i*3];
 			bool swapped = false;
 			// Make sure the segments are always handled in same order
 			// using lexological sort or else there will be seams.
-			if (fabsf(vj[0]-vi[0]) < 1e-6f)
+			if (rcAbs(vj[0]-vi[0]) < 1e-6f)
 			{
 				if (vj[2] > vi[2])
 				{
@@ -688,19 +693,19 @@ static bool buildPolyDetail(rcContext* ctx, const float* in, const int nin,
 				}
 			}
 			// Create samples along the edge.
-			float dx = vi[0] - vj[0];
-			float dy = vi[1] - vj[1];
-			float dz = vi[2] - vj[2];
-			float d = sqrtf(dx*dx + dz*dz);
-			int nn = 1 + (int)floorf(d/sampleDist);
+			rcReal dx = vi[0] - vj[0];
+			rcReal dy = vi[1] - vj[1];
+			rcReal dz = vi[2] - vj[2];
+			rcReal d = rcSqrt(dx*dx + dz*dz);
+			int nn = 1 + (int)rcFloor(d/sampleDist);
 			if (nn >= MAX_VERTS_PER_EDGE) nn = MAX_VERTS_PER_EDGE-1;
 			if (nverts+nn >= MAX_VERTS)
 				nn = MAX_VERTS-1-nverts;
 			
 			for (int k = 0; k <= nn; ++k)
 			{
-				float u = (float)k/(float)nn;
-				float* pos = &edge[k*3];
+				rcReal u = (rcReal)k/(rcReal)nn;
+				rcReal* pos = &edge[k*3];
 				pos[0] = vj[0] + dx*u;
 				pos[1] = vj[1] + dy*u;
 				pos[2] = vj[2] + dz*u;
@@ -713,14 +718,14 @@ static bool buildPolyDetail(rcContext* ctx, const float* in, const int nin,
 			{
 				const int a = idx[k];
 				const int b = idx[k+1];
-				const float* va = &edge[a*3];
-				const float* vb = &edge[b*3];
+				const rcReal* va = &edge[a*3];
+				const rcReal* vb = &edge[b*3];
 				// Find maximum deviation along the segment.
-				float maxd = 0;
+				rcReal maxd = 0;
 				int maxi = -1;
 				for (int m = a+1; m < b; ++m)
 				{
-					float dev = distancePtSeg(&edge[m*3],va,vb);
+					rcReal dev = distancePtSeg(&edge[m*3],va,vb);
 					if (dev > maxd)
 					{
 						maxd = dev;
@@ -781,14 +786,21 @@ static bool buildPolyDetail(rcContext* ctx, const float* in, const int nin,
 	if (tris.size() == 0)
 	{
 		// Could not triangulate the poly, make sure there is some valid data there.
-		ctx->log(RC_LOG_WARNING, "buildPolyDetail: Could not triangulate polygon (%d verts).", nverts);
+		ctx->log(RC_LOG_WARNING, "buildPolyDetail: Could not triangulate polygon, adding default data.");
+		for (int i = 2; i < nverts; ++i)
+		{
+			tris.push(0);
+			tris.push(i-1);
+			tris.push(i);
+			tris.push(0);
+		}
 		return true;
 	}
-	
+
 	if (sampleDist > 0)
 	{
 		// Create sample locations in a grid.
-		float bmin[3], bmax[3];
+		rcReal bmin[3], bmax[3];
 		rcVcopy(bmin, in);
 		rcVcopy(bmax, in);
 		for (int i = 1; i < nin; ++i)
@@ -796,16 +808,16 @@ static bool buildPolyDetail(rcContext* ctx, const float* in, const int nin,
 			rcVmin(bmin, &in[i*3]);
 			rcVmax(bmax, &in[i*3]);
 		}
-		int x0 = (int)floorf(bmin[0]/sampleDist);
-		int x1 = (int)ceilf(bmax[0]/sampleDist);
-		int z0 = (int)floorf(bmin[2]/sampleDist);
-		int z1 = (int)ceilf(bmax[2]/sampleDist);
+		int x0 = (int)rcFloor(bmin[0]/sampleDist);
+		int x1 = (int)rcCeil(bmax[0]/sampleDist);
+		int z0 = (int)rcFloor(bmin[2]/sampleDist);
+		int z1 = (int)rcCeil(bmax[2]/sampleDist);
 		samples.clear();
 		for (int z = z0; z < z1; ++z)
 		{
 			for (int x = x0; x < x1; ++x)
 			{
-				float pt[3];
+				rcReal pt[3];
 				pt[0] = x*sampleDist;
 				pt[1] = (bmax[1]+bmin[1])*0.5f;
 				pt[2] = z*sampleDist;
@@ -817,7 +829,7 @@ static bool buildPolyDetail(rcContext* ctx, const float* in, const int nin,
 				samples.push(0); // Not added
 			}
 		}
-		
+				
 		// Add the samples starting from the one that has the most
 		// error. The procedure stops when all samples are added
 		// or when the max error is within treshold.
@@ -826,22 +838,22 @@ static bool buildPolyDetail(rcContext* ctx, const float* in, const int nin,
 		{
 			if (nverts >= MAX_VERTS)
 				break;
-			
+
 			// Find sample with most error.
-			float bestpt[3] = {0,0,0};
-			float bestd = 0;
+			rcReal bestpt[3] = {0,0,0};
+			rcReal bestd = 0;
 			int besti = -1;
 			for (int i = 0; i < nsamples; ++i)
 			{
 				const int* s = &samples[i*4];
 				if (s[3]) continue; // skip added.
-				float pt[3];
+				rcReal pt[3];
 				// The sample location is jittered to get rid of some bad triangulations
 				// which are cause by symmetrical data from the grid structure.
 				pt[0] = s[0]*sampleDist + getJitterX(i)*cs*0.1f;
 				pt[1] = s[1]*chf.ch;
 				pt[2] = s[2]*sampleDist + getJitterY(i)*cs*0.1f;
-				float d = distToTriMesh(pt, verts, nverts, &tris[0], tris.size()/4);
+				rcReal d = distToTriMesh(pt, verts, nverts, &tris[0], tris.size()/4);
 				if (d < 0) continue; // did not hit the mesh.
 				if (d > bestd)
 				{
@@ -864,16 +876,16 @@ static bool buildPolyDetail(rcContext* ctx, const float* in, const int nin,
 			edges.clear();
 			tris.clear();
 			delaunayHull(ctx, nverts, verts, nhull, hull, tris, edges);
-		}
+		}		
 	}
-	
+
 	const int ntris = tris.size()/4;
 	if (ntris > MAX_TRIS)
 	{
 		tris.resize(MAX_TRIS*4);
 		ctx->log(RC_LOG_ERROR, "rcBuildPolyMeshDetail: Shrinking triangle count from %d to max %d.", ntris, MAX_TRIS);
 	}
-	
+
 	return true;
 }
 
@@ -922,14 +934,14 @@ static void seedArrayWithPolyCenter(rcContext* ctx, const rcCompactHeightfield& 
 	
 	rcAssert(startSpanIndex != -1);
 	// Find center of the polygon
-	int pcx = 0, pcy = 0;
+	int pcx = 0, pcz = 0;
 	for (int j = 0; j < npoly; ++j)
 	{
 		pcx += (int)verts[poly[j]*3+0];
-		pcy += (int)verts[poly[j]*3+2];
+		pcz += (int)verts[poly[j]*3+2];
 	}
 	pcx /= npoly;
-	pcy /= npoly;
+	pcz /= npoly;
 	
 	// Use seeds array as a stack for DFS
 	array.clear();
@@ -956,7 +968,7 @@ static void seedArrayWithPolyCenter(rcContext* ctx, const rcCompactHeightfield& 
 		cy = array.pop();
 		cx = array.pop();
 
-		if (cx == pcx && cy == pcy)
+		if (cx == pcx && cy == pcz)
 			break;
 
 		// If we are already at the correct X-position, prefer direction
@@ -964,7 +976,7 @@ static void seedArrayWithPolyCenter(rcContext* ctx, const rcCompactHeightfield& 
 		// direction in the X-axis
 		int directDir;
 		if (cx == pcx)
-			directDir = rcGetDirForOffset(0, pcy > cy ? 1 : -1);
+			directDir = rcGetDirForOffset(0, pcz > cy ? 1 : -1);
 		else
 			directDir = rcGetDirForOffset(pcx > cx ? 1 : -1, 0);
 
@@ -1108,7 +1120,7 @@ static void getHeightData(rcContext* ctx, const rcCompactHeightfield& chf,
 				memmove(&queue[0], &queue[RETRACT_SIZE*3], sizeof(int)*(queue.size()-RETRACT_SIZE*3));
 			queue.resize(queue.size()-RETRACT_SIZE*3);
 		}
-		
+
 		const rcCompactSpan& cs = chf.spans[ci];
 		for (int dir = 0; dir < 4; ++dir)
 		{
@@ -1135,23 +1147,23 @@ static void getHeightData(rcContext* ctx, const rcCompactHeightfield& chf,
 	}
 }
 
-static unsigned char getEdgeFlags(const float* va, const float* vb,
-								  const float* vpoly, const int npoly)
+static unsigned char getEdgeFlags(const rcReal* va, const rcReal* vb,
+								  const rcReal* vpoly, const int npoly)
 {
 	// The flag returned by this function matches dtDetailTriEdgeFlags in Detour.
 	// Figure out if edge (va,vb) is part of the polygon boundary.
-	static const float thrSqr = rcSqr(0.001f);
+	static const rcReal thrSqr = rcSqr(0.001f);
 	for (int i = 0, j = npoly-1; i < npoly; j=i++)
 	{
-		if (distancePtSeg2d(va, &vpoly[j*3], &vpoly[i*3]) < thrSqr &&
+		if (distancePtSeg2d(va, &vpoly[j*3], &vpoly[i*3]) < thrSqr && 
 			distancePtSeg2d(vb, &vpoly[j*3], &vpoly[i*3]) < thrSqr)
 			return 1;
 	}
 	return 0;
 }
 
-static unsigned char getTriFlags(const float* va, const float* vb, const float* vc,
-								 const float* vpoly, const int npoly)
+static unsigned char getTriFlags(const rcReal* va, const rcReal* vb, const rcReal* vc,
+								 const rcReal* vpoly, const int npoly)
 {
 	unsigned char flags = 0;
 	flags |= getEdgeFlags(va,vb,vpoly,npoly) << 0;
@@ -1166,7 +1178,7 @@ static unsigned char getTriFlags(const float* va, const float* vb, const float* 
 ///
 /// @see rcAllocPolyMeshDetail, rcPolyMesh, rcCompactHeightfield, rcPolyMeshDetail, rcConfig
 bool rcBuildPolyMeshDetail(rcContext* ctx, const rcPolyMesh& mesh, const rcCompactHeightfield& chf,
-						   const float sampleDist, const float sampleMaxError,
+						   const rcReal sampleDist, const rcReal sampleMaxError,
 						   rcPolyMeshDetail& dmesh)
 {
 	rcAssert(ctx);
@@ -1177,28 +1189,28 @@ bool rcBuildPolyMeshDetail(rcContext* ctx, const rcPolyMesh& mesh, const rcCompa
 		return true;
 	
 	const int nvp = mesh.nvp;
-	const float cs = mesh.cs;
-	const float ch = mesh.ch;
-	const float* orig = mesh.bmin;
+	const rcReal cs = mesh.cs;
+	const rcReal ch = mesh.ch;
+	const rcReal* orig = mesh.bmin;
 	const int borderSize = mesh.borderSize;
-	const int heightSearchRadius = rcMax(1, (int)ceilf(mesh.maxEdgeError));
+	const int heightSearchRadius = rcMax(1, (int)rcCeil(mesh.maxEdgeError));
 	
 	rcIntArray edges(64);
 	rcIntArray tris(512);
 	rcIntArray arr(512);
 	rcIntArray samples(512);
-	float verts[256*3];
+	rcReal verts[256*3];
 	rcHeightPatch hp;
 	int nPolyVerts = 0;
 	int maxhw = 0, maxhh = 0;
 	
-	rcScopedDelete<int> bounds((int*)rcAlloc(sizeof(int)*mesh.npolys*4, RC_ALLOC_TEMP));
+	rcScopedDelete<int> bounds(mesh.npolys*4);
 	if (!bounds)
 	{
 		ctx->log(RC_LOG_ERROR, "rcBuildPolyMeshDetail: Out of memory 'bounds' (%d).", mesh.npolys*4);
 		return false;
 	}
-	rcScopedDelete<float> poly((float*)rcAlloc(sizeof(float)*nvp*3, RC_ALLOC_TEMP));
+	rcScopedDelete<rcReal> poly(nvp*3);
 	if (!poly)
 	{
 		ctx->log(RC_LOG_ERROR, "rcBuildPolyMeshDetail: Out of memory 'poly' (%d).", nvp*3);
@@ -1257,7 +1269,7 @@ bool rcBuildPolyMeshDetail(rcContext* ctx, const rcPolyMesh& mesh, const rcCompa
 	int tcap = vcap*2;
 	
 	dmesh.nverts = 0;
-	dmesh.verts = (float*)rcAlloc(sizeof(float)*vcap*3, RC_ALLOC_PERM);
+	dmesh.verts = (rcReal*)rcAlloc(sizeof(rcReal)*vcap*3, RC_ALLOC_PERM);
 	if (!dmesh.verts)
 	{
 		ctx->log(RC_LOG_ERROR, "rcBuildPolyMeshDetail: Out of memory 'dmesh.verts' (%d).", vcap*3);
@@ -1333,15 +1345,15 @@ bool rcBuildPolyMeshDetail(rcContext* ctx, const rcPolyMesh& mesh, const rcCompa
 		{
 			while (dmesh.nverts+nverts > vcap)
 				vcap += 256;
-			
-			float* newv = (float*)rcAlloc(sizeof(float)*vcap*3, RC_ALLOC_PERM);
+				
+			rcReal* newv = (rcReal*)rcAlloc(sizeof(rcReal)*vcap*3, RC_ALLOC_PERM);
 			if (!newv)
 			{
 				ctx->log(RC_LOG_ERROR, "rcBuildPolyMeshDetail: Out of memory 'newv' (%d).", vcap*3);
 				return false;
 			}
 			if (dmesh.nverts)
-				memcpy(newv, dmesh.verts, sizeof(float)*3*dmesh.nverts);
+				memcpy(newv, dmesh.verts, sizeof(rcReal)*3*dmesh.nverts);
 			rcFree(dmesh.verts);
 			dmesh.verts = newv;
 		}
@@ -1419,7 +1431,7 @@ bool rcMergePolyMeshDetails(rcContext* ctx, rcPolyMeshDetail** meshes, const int
 	}
 	
 	mesh.nverts = 0;
-	mesh.verts = (float*)rcAlloc(sizeof(float)*maxVerts*3, RC_ALLOC_PERM);
+	mesh.verts = (rcReal*)rcAlloc(sizeof(rcReal)*maxVerts*3, RC_ALLOC_PERM);
 	if (!mesh.verts)
 	{
 		ctx->log(RC_LOG_ERROR, "rcBuildPolyMeshDetail: Out of memory 'dmesh.verts' (%d).", maxVerts*3);
@@ -1441,7 +1453,7 @@ bool rcMergePolyMeshDetails(rcContext* ctx, rcPolyMeshDetail** meshes, const int
 			dst[3] = src[3];
 			mesh.nmeshes++;
 		}
-		
+			
 		for (int k = 0; k < dm->nverts; ++k)
 		{
 			rcVcopy(&mesh.verts[mesh.nverts*3], &dm->verts[k*3]);
