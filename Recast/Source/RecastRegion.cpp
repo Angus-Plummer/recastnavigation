@@ -1658,7 +1658,9 @@ bool rcBuildRegionsWatershed(rcContext* ctx, rcCompactHeightfield& chf,
 
     unsigned short* srcReg = spanBuf4;
     if ( !rcGatherRegionsWatershedNoFilter( ctx, chf, borderSize, spanBuf4 ) )
+    {
         return false;
+    }
 	
 	{
 		rcScopedTimer timerFilter(ctx, RC_TIMER_BUILD_REGIONS_FILTER);
@@ -1666,8 +1668,10 @@ bool rcBuildRegionsWatershed(rcContext* ctx, rcCompactHeightfield& chf,
         // Merge regions and filter out small regions.
 		rcIntArray overlaps;
         const int chunkSize = rcMax( chf.width, chf.height );
-        if (!mergeAndFilterRegions( ctx, minRegionArea, mergeRegionArea, chunkSize, chf.maxRegions, chf, srcReg, overlaps))
+        if ( !mergeAndFilterRegions( ctx, minRegionArea, mergeRegionArea, chunkSize, chf.maxRegions, chf, srcReg, overlaps ) )
+        {
             return false;
+        }
 
 		// If overlapping regions were found during merging, split those regions.
 		if (overlaps.size() > 0)

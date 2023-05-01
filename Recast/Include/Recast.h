@@ -21,6 +21,7 @@
 
 #define WITH_NAVMESH_CLUSTER_LINKS 0
 
+#include <math.h>
 #include "RecastConfig.h"
 #include "RecastLargeWorldCoordinates.h"
 

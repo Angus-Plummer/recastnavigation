@@ -19,6 +19,7 @@
 #ifndef DEBUGDRAW_H
 #define DEBUGDRAW_H
 
+#include <math.h>
 #include "DebugDrawLargeWorldCoordinates.h"
 
 //@HG BEGIN Adding support for double precision
@@ -258,11 +259,11 @@ class duDisplayList : public duDebugDraw
 public:
 	duDisplayList(int cap = 512);
 	virtual ~duDisplayList() override;
-	virtual void depthMask(bool state);
-	virtual void begin(duDebugDrawPrimitives prim, float size = 1.0f);
-	virtual void vertex(const duReal x, const duReal y, const duReal z, unsigned int color);
-	virtual void vertex(const duReal* pos, unsigned int color);
-	virtual void end();
+	virtual void depthMask(bool state) override;
+	virtual void begin(duDebugDrawPrimitives prim, float size = 1.0f) override;
+	virtual void vertex(const duReal x, const duReal y, const duReal z, unsigned int color) override;
+	virtual void vertex(const duReal* pos, unsigned int color) override;
+	virtual void end() override;
 	void clear();
 	void draw(struct duDebugDraw* dd);
 private:
