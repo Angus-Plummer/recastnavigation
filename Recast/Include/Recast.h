@@ -27,7 +27,7 @@
 
 //@HG BEGIN Adding support for double coords.
 /// The value of PI used by Recast.
-static const rcReal RC_PI = 3.14159265358979323846;
+static const rcReal RC_PI = ( rcReal )3.14159265358979323846;
 
 inline float rcSin(float x)
 {
@@ -156,6 +156,8 @@ enum rcTimerLabel
 	RC_TIMER_BUILD_POLYMESHDETAIL,
 	/// The time to merge polygon mesh details. (See: #rcMergePolyMeshDetails)
 	RC_TIMER_MERGE_POLYMESHDETAIL,
+	// The time to write out the results of a tile build into final tile data
+	RC_TIMER_WRITE_TO_TILE,
 	/// The maximum number of timers.  (Used for iterating timers.)
 	RC_MAX_TIMERS
 };
@@ -756,6 +758,9 @@ rcPolyMeshDetail* rcAllocPolyMeshDetail();
 void rcFreePolyMeshDetail(rcPolyMeshDetail* detailMesh);
 
 /// @}
+
+static const unsigned short RC_INTERNAL_POLY_EDGE_INDEX_BITS = 3;
+static const unsigned short RC_EXTERNAL_POLY_EDGE_FLAG = 0x8000;
 
 /// Heightfield border flag.
 /// If a heightfield region ID has this bit set, then the region is a border 

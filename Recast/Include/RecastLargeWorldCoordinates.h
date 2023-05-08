@@ -6,11 +6,11 @@
 
 #if RC_LARGE_WORLD_COORDINATES_ENABLED
 
-typedef float rcReal;
+typedef double rcReal;
 
 #else // RC_LARGE_WORLD_COORDINATES_ENABLED
 
-typedef double rcReal;
+typedef float rcReal;
 
 #endif // RC_LARGE_WORLD_COORDINATES_ENABLED
 

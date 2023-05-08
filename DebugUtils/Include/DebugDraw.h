@@ -24,7 +24,7 @@
 
 //@HG BEGIN Adding support for double precision
 // Some math headers don't have PI defined.
-static const duReal DU_PI = 3.14159265358979323846;
+static const duReal DU_PI = ( duReal )3.14159265358979323846;
 
 inline float duSin(float x)
 {

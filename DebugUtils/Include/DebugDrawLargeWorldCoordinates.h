@@ -6,10 +6,10 @@
 
 #if DU_LARGE_WORLD_COORDINATES_ENABLED
 
-typedef float duReal;
+typedef double duReal;
 
 #else // DU_LARGE_WORLD_COORDINATES_ENABLED
 
-typedef double duReal;
+typedef float duReal;
 
 #endif // DU_LARGE_WORLD_COORDINATES_ENABLED

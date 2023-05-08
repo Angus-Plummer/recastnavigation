@@ -112,8 +112,8 @@ static bool buildMeshAdjacency(unsigned short* polys, const int npolys,
 		{
 			unsigned short* p0 = &polys[e.poly[0]*vertsPerPoly*2];
 			unsigned short* p1 = &polys[e.poly[1]*vertsPerPoly*2];
-			p0[vertsPerPoly + e.polyEdge[0]] = e.poly[1];
-			p1[vertsPerPoly + e.polyEdge[1]] = e.poly[0];
+			p0[vertsPerPoly + e.polyEdge[0]] = e.poly[1] << RC_INTERNAL_POLY_EDGE_INDEX_BITS | e.polyEdge[1]; // @HG encode the poly index + edge index together
+			p1[vertsPerPoly + e.polyEdge[1]] = e.poly[0] << RC_INTERNAL_POLY_EDGE_INDEX_BITS | e.polyEdge[0];
 		}
 	}
 	
@@ -1199,13 +1199,13 @@ bool rcBuildPolyMesh(rcContext* ctx, rcContourSet& cset, const int nvp, rcPolyMe
 				const unsigned short* vb = &mesh.verts[p[nj]*3];
 
 				if ((int)va[0] == 0 && (int)vb[0] == 0)
-					p[nvp+j] = 0x8000 | 0;
+					p[nvp+j] = RC_EXTERNAL_POLY_EDGE_FLAG | 0;
 				else if ((int)va[2] == h && (int)vb[2] == h)
-					p[nvp+j] = 0x8000 | 1;
+					p[nvp+j] = RC_EXTERNAL_POLY_EDGE_FLAG | 1;
 				else if ((int)va[0] == w && (int)vb[0] == w)
-					p[nvp+j] = 0x8000 | 2;
+					p[nvp+j] = RC_EXTERNAL_POLY_EDGE_FLAG | 2;
 				else if ((int)va[2] == 0 && (int)vb[2] == 0)
-					p[nvp+j] = 0x8000 | 3;
+					p[nvp+j] = RC_EXTERNAL_POLY_EDGE_FLAG | 3;
 			}
 		}
 	}
@@ -1363,7 +1363,8 @@ bool rcMergePolyMeshes(rcContext* ctx, rcPolyMesh** meshes, const int nmeshes, r
 			{
 				for (int k = mesh.nvp; k < mesh.nvp * 2; ++k)
 				{
-					if (src[k] & 0x8000 && src[k] != 0xffff)
+					if (src[k] & RC_EXTERNAL_POLY_EDGE_FLAG 
+                        && src[k] != RC_EXTERNAL_POLY_EDGE_FLAG)
 					{
 						unsigned short dir = src[k] & 0xf;
 						switch (dir)
