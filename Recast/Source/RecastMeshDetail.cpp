@@ -75,16 +75,16 @@ static bool circumCircle(const rcReal* p1, const rcReal* p2, const rcReal* p3,
 	rcVsub(v2, p2,p1);
 	rcVsub(v3, p3,p1);
 	
-	const rcReal cp = vcross2(p1, p2, p3);
+	const rcReal cp = vcross2(v1, v2, v3);
 	if (rcAbs(cp) > EPS)
 	{
-		const rcReal p1Sq = vdot2(p1,p1);
-		const rcReal p2Sq = vdot2(p2,p2);
-		const rcReal p3Sq = vdot2(p3,p3);
-		c[0] = (p1Sq*(p2[2]-p3[2]) + p2Sq*(p3[2]-p1[2]) + p3Sq*(p1[2]-p2[2])) / (2*cp);
+		const rcReal v1Sq = vdot2(v1,v1);
+		const rcReal v2Sq = vdot2(v2,v2);
+		const rcReal v3Sq = vdot2(v3,v3);
+		c[0] = (v1Sq*(v2[2]-v3[2]) + v2Sq*(v3[2]-v1[2]) + v3Sq*(v1[2]-v2[2])) / (2*cp);
 		c[1] = 0;
-		c[2] = (p1Sq*(p3[0]-p2[0]) + p2Sq*(p1[0]-p3[0]) + p3Sq*(p2[0]-p1[0])) / (2*cp);
-		r = vdist2(c, p1);
+		c[2] = (v1Sq*(v3[0]-v2[0]) + v2Sq*(v1[0]-v3[0]) + v3Sq*(v2[0]-v1[0])) / (2*cp);
+		r = vdist2(c, v1);
 		rcVadd(c, c, p1);
 		return true;
 	}
@@ -1321,7 +1321,7 @@ bool rcBuildPolyMeshDetail(rcContext* ctx, const rcPolyMesh& mesh, const rcCompa
 		for (int j = 0; j < nverts; ++j)
 		{
 			verts[j*3+0] += orig[0];
-			verts[j*3+1] += orig[1] + chf.ch; // Is this offset necessary?
+			verts[j*3+1] += orig[1];// + chf.ch; // Is this offset necessary?
 			verts[j*3+2] += orig[2];
 		}
 		// Offset poly too, will be used to flag checking.
